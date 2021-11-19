@@ -1,0 +1,13 @@
+{
+  "compilerOptions": {
+    "types": ["mocha", "chai", "node"],
+    "typeRoots": ["./node_modules/@types"],
+    "lib": [
+      "ESNext",
+      "dom"
+    ],
+    "module": "commonjs",
+    "target": "ESNext",
+    "esModuleInterop": true
+  }
+}
