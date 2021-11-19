@@ -1,0 +1,9 @@
+{
+  "name": "clic-trivia",
+  "version": "1.0.0",
+  "author": "Alexey Shekhirin <a.shekhirin@gmail.com>",
+  "license": "MIT",
+  "devDependencies": {
+    "@project-serum/anchor": "^0.18.0"
+  }
+}
