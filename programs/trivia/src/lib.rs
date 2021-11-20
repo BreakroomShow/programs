@@ -20,7 +20,7 @@ mod trivia {
 
     #[derive(Accounts)]
     pub struct InitializeTrivia<'info> {
-        #[account(init, payer = authority, space = 9000)]
+        #[account(init, payer = authority, space = 9999)]
         trivia: Account<'info, Trivia>,
         #[account(mut)]
         authority: Signer<'info>,
@@ -36,34 +36,28 @@ mod trivia {
     }
 
     #[derive(Accounts)]
-    pub struct CreateGame<'info> {
+    pub struct InitializeGame<'info> {
         #[account(mut, has_one = authority)]
         trivia: Account<'info, Trivia>,
+        #[account(init, payer = authority, space = 9999)]
+        game: Account<'info, Game>,
         authority: Signer<'info>,
+        system_program: Program<'info, System>,
     }
 
-    #[access_control(auth(&ctx.accounts.trivia, &ctx.accounts.authority.key))]
-    pub fn create_game(
-        ctx: Context<CreateGame>,
+    #[access_control(auth(&ctx.accounts.trivia.authority, &ctx.accounts.authority.key))]
+    pub fn initialize_game(
+        ctx: Context<InitializeGame>,
         name: String,
         questions: Vec<Question>,
     ) -> ProgramResult {
         require!(!name.is_empty(), ErrorCode::InvalidGameName);
 
-        for question in &questions {
-            require!(
-                question.revealed_question.is_none() && question.revealed_variants.is_none(),
-                ErrorCode::RevealedQuestionsOnGameCreation
-            );
-        }
-
-        let id = ctx.accounts.trivia.games.len() as u32;
-        ctx.accounts.trivia.games.push(Game {
-            id,
-            name,
-            questions,
-            ..Default::default()
-        });
+        let game = &mut ctx.accounts.game;
+        game.trivia = ctx.accounts.trivia.to_account_info().key();
+        game.name = name;
+        game.questions = questions;
+        game.authority = ctx.accounts.authority.key();
 
         Ok(())
     }
@@ -71,24 +65,18 @@ mod trivia {
     #[derive(Accounts)]
     pub struct RevealQuestion<'info> {
         #[account(mut, has_one = authority)]
-        trivia: Account<'info, Trivia>,
+        game: Account<'info, Game>,
         authority: Signer<'info>,
     }
 
-    #[access_control(auth(&ctx.accounts.trivia, &ctx.accounts.authority.key))]
+    #[access_control(auth(&ctx.accounts.game.authority, &ctx.accounts.authority.key))]
     pub fn reveal_question(
         ctx: Context<RevealQuestion>,
-        game_id: u32,
         question_id: u32,
         revealed_question: String,
         revealed_variants: Vec<String>,
     ) -> ProgramResult {
-        let game = ctx
-            .accounts
-            .trivia
-            .games
-            .get_mut(game_id as usize)
-            .ok_or(ErrorCode::GameDoesNotExist)?;
+        let game = &mut ctx.accounts.game;
 
         require!(
             question_id as usize == game.revealed_questions.len(),

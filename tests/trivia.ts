@@ -1,5 +1,5 @@
 import * as anchor from "@project-serum/anchor"
-import {assert} from "chai"
+import * as assert from "assert"
 
 function sha256(...values: string[]) {
     const sha256 = require("js-sha256")
@@ -18,7 +18,9 @@ describe("trivia", () => {
 
     const program = anchor.workspace.Trivia
     const triviaKeypair = anchor.web3.Keypair.generate()
-    let trivia
+    const gameKeypair = anchor.web3.Keypair.generate()
+
+    let game
 
     it("Creates and initializes a Trivia", async () => {
         await program.rpc.initialize({
@@ -30,43 +32,37 @@ describe("trivia", () => {
             signers: [triviaKeypair]
         })
 
-        trivia = await program.account.trivia.fetch(triviaKeypair.publicKey)
-        assert.equal(trivia.games.length, 0)
+        await program.account.trivia.fetch(triviaKeypair.publicKey)
     })
 
-    it("Creates a game for Trivia", async () => {
+    it("Creates and initializes a game for the Trivia", async () => {
         const question = {
             question: sha256("What is the best blockchain?"),
-            revealedQuestion: null,
             variants: [
                 sha256("What is the best blockchain?", "Ethereum"),
                 sha256("What is the best blockchain?", "Solana"),
                 sha256("What is the best blockchain?", "Bitcoin")
             ],
-            revealedVariants: null,
         }
 
-        await program.rpc.createGame(
+        await program.rpc.initializeGame(
             "Clever",
             [question],
             {
                 accounts: {
                     trivia: triviaKeypair.publicKey,
-                    authority: provider.wallet.publicKey
-                }
+                    game: gameKeypair.publicKey,
+                    authority: provider.wallet.publicKey,
+                    systemProgram: anchor.web3.SystemProgram.programId
+                },
+                signers: [gameKeypair]
             }
         )
 
-        trivia = await program.account.trivia.fetch(triviaKeypair.publicKey)
-        assert.deepEqual(
-            trivia.games,
-            [{
-                id: 0,
-                name: "Clever",
-                questions: [question],
-                revealedQuestions: []
-            }]
-        )
+        game = await program.account.game.fetch(gameKeypair.publicKey)
+        assert.equal(game.name, "Clever")
+        assert.deepEqual(game.questions, [question])
+        assert.deepEqual(game.revealedQuestions, [])
     })
 
     it("Reveals a question for Trivia", async () => {
@@ -81,21 +77,20 @@ describe("trivia", () => {
         }
 
         await program.rpc.revealQuestion(
-            0,
             revealedQuestion.id,
             revealedQuestion.question,
             revealedQuestion.variants,
             {
                 accounts: {
-                    trivia: triviaKeypair.publicKey,
+                    game: gameKeypair.publicKey,
                     authority: provider.wallet.publicKey
                 }
             }
         )
 
-        trivia = await program.account.trivia.fetch(triviaKeypair.publicKey)
+        game = await program.account.game.fetch(gameKeypair.publicKey)
         assert.deepEqual(
-            trivia.games[0].revealedQuestions,
+            game.revealedQuestions,
             [{
                 question: revealedQuestion.question,
                 variants: revealedQuestion.variants
