@@ -19,11 +19,10 @@ describe("trivia", () => {
     const program = anchor.workspace.Trivia
     const triviaKeypair = anchor.web3.Keypair.generate()
     const gameKeypair = anchor.web3.Keypair.generate()
+    const questionKeypair = anchor.web3.Keypair.generate()
     const answerKeypair = anchor.web3.Keypair.generate()
 
-    let game
-
-    it("Creates and initializes a Trivia", async () => {
+    it("Initializes a Trivia", async () => {
         await program.rpc.initialize({
             accounts: {
                 trivia: triviaKeypair.publicKey,
@@ -36,19 +35,9 @@ describe("trivia", () => {
         await program.account.trivia.fetch(triviaKeypair.publicKey)
     })
 
-    it("Creates and initializes a Game for the Trivia", async () => {
-        const question = {
-            question: sha256("What is the best blockchain?"),
-            variants: [
-                sha256("What is the best blockchain?", "Ethereum"),
-                sha256("What is the best blockchain?", "Solana"),
-                sha256("What is the best blockchain?", "Bitcoin")
-            ],
-        }
-
-        await program.rpc.initializeGame(
+    it("Creates a Game for the Trivia", async () => {
+        await program.rpc.createGame(
             "Clever",
-            [question],
             {
                 accounts: {
                     trivia: triviaKeypair.publicKey,
@@ -60,10 +49,45 @@ describe("trivia", () => {
             }
         )
 
-        game = await program.account.game.fetch(gameKeypair.publicKey)
+        const game = await program.account.game.fetch(gameKeypair.publicKey)
+        assert.equal(game.started, false)
         assert.equal(game.name, "Clever")
-        assert.deepEqual(game.questions, [question])
-        assert.deepEqual(game.revealedQuestions, [])
+        assert.deepEqual(game.questions, [])
+        assert.equal(game.revealedQuestionsCounter, 0)
+    })
+
+    it("Adds a Question for the Game", async () => {
+        const name = sha256("What is the best blockchain?")
+        const variants = [
+            sha256("What is the best blockchain?", "Ethereum"),
+            sha256("What is the best blockchain?", "Solana"),
+            sha256("What is the best blockchain?", "Bitcoin")
+        ]
+
+        await program.rpc.addQuestion(
+            name,
+            variants,
+            {
+                accounts: {
+                    game: gameKeypair.publicKey,
+                    question: questionKeypair.publicKey,
+                    authority: provider.wallet.publicKey,
+                    systemProgram: anchor.web3.SystemProgram.programId
+                },
+                signers: [questionKeypair]
+            }
+        )
+
+        const game = await program.account.game.fetch(gameKeypair.publicKey)
+        assert.deepEqual(game.questions, [questionKeypair.publicKey])
+
+        const question = await program.account.question.fetch(questionKeypair.publicKey)
+        assert.deepEqual(question.game, gameKeypair.publicKey)
+        assert.deepEqual(question.question, name)
+        assert.deepEqual(question.variants, variants)
+        assert.equal(question.revealedQuestion, null)
+        assert.equal(question.reveleadVariants, null)
+        assert.deepEqual(question.votes, [])
     })
 
     it("Starts the Game", async () => {
@@ -74,50 +98,44 @@ describe("trivia", () => {
             }
         })
 
-        game = await program.account.game.fetch(gameKeypair.publicKey)
+        const game = await program.account.game.fetch(gameKeypair.publicKey)
         assert.equal(game.started, true)
     })
 
     it("Reveals a question for the Game", async () => {
-        const revealedQuestion = {
-            id: 0,
-            question: "What is the best blockchain?",
-            variants: [
-                "Ethereum",
-                "Solana",
-                "Bitcoin"
-            ]
-        }
+        const name = "What is the best blockchain?"
+        const variants = [
+            "Ethereum",
+            "Solana",
+            "Bitcoin"
+        ]
 
         await program.rpc.revealQuestion(
-            revealedQuestion.id,
-            revealedQuestion.question,
-            revealedQuestion.variants,
+            name,
+            variants,
             {
                 accounts: {
+                    question: questionKeypair.publicKey,
                     game: gameKeypair.publicKey,
                     authority: provider.wallet.publicKey
                 }
             }
         )
 
-        game = await program.account.game.fetch(gameKeypair.publicKey)
-        assert.deepEqual(
-            game.revealedQuestions,
-            [{
-                question: revealedQuestion.question,
-                variants: revealedQuestion.variants,
-                votes: []
-            }]
-        )
+        const game = await program.account.game.fetch(gameKeypair.publicKey)
+        assert.equal(game.revealedQuestionsCounter, 1)
+
+        const question = await program.account.question.fetch(questionKeypair.publicKey)
+        assert.equal(question.revealedQuestion, name)
+        assert.deepEqual(question.revealedVariants, variants)
     })
 
     it("Answers the revealed question", async () => {
         await program.rpc.submitAnswer(
-            0,
-            0,
+            1,
             {
                 accounts: {
+                    question: questionKeypair.publicKey,
                     game: gameKeypair.publicKey,
                     answer: answerKeypair.publicKey,
                     user: provider.wallet.publicKey,
@@ -127,14 +145,13 @@ describe("trivia", () => {
             }
         )
 
-        let answer = await program.account.answer.fetch(answerKeypair.publicKey)
-        assert.deepEqual(answer.game, gameKeypair.publicKey)
-        assert.equal(answer.questionId, 0)
-        assert.equal(answer.variantId, 0)
+        const answer = await program.account.answer.fetch(answerKeypair.publicKey)
+        assert.deepEqual(answer.question, questionKeypair.publicKey)
+        assert.equal(answer.variantId, 1)
 
-        game = await program.account.game.fetch(gameKeypair.publicKey)
+        const question = await program.account.question.fetch(questionKeypair.publicKey)
         assert.deepEqual(
-            game.revealedQuestions[0].votes,
+            question.votes,
             [answerKeypair.publicKey]
         )
     })

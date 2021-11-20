@@ -10,29 +10,26 @@ pub struct Game {
     pub trivia: Pubkey, // Trivia this game belongs to
     pub started: bool,
     pub name: String,
-    pub questions: Vec<Question>,
-    pub revealed_questions: Vec<RevealedQuestion>,
+    pub questions: Vec<Pubkey>,
+    pub revealed_questions_counter: u32,
     pub authority: Pubkey,
 }
 
-#[derive(Debug, Clone, AnchorSerialize, AnchorDeserialize)]
+#[account]
+#[derive(Default)]
 pub struct Question {
+    pub game: Pubkey,            // Game this question belongs to
     pub question: [u8; 32],      // SHA256 hash of question == sha256(question)
     pub variants: Vec<[u8; 32]>, // SHA256 hashes of answers == sha256(sha256(question) + answer))
-}
-
-#[derive(Debug, Clone, Default, AnchorSerialize, AnchorDeserialize)]
-pub struct RevealedQuestion {
-    pub question: String,
-    pub variants: Vec<String>,
+    pub revealed_question: Option<String>,
+    pub revealed_variants: Option<Vec<String>>,
     pub votes: Vec<Pubkey>,
+    pub authority: Pubkey,
 }
 
 #[account]
 pub struct Answer {
-    pub game: Pubkey, // Game this answer belongs to
-    // TODO: use separate `Question` account instead of index in Game.questions vector
-    pub question_id: u32,
+    pub question: Pubkey, // Question this answer belongs to
     // TODO: hide so other users can't see it until answering period ends
     pub variant_id: u32,
     pub user: Pubkey,
