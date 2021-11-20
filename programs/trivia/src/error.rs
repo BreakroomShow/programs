@@ -28,4 +28,6 @@ pub enum ErrorCode {
     QuestionDeadlineExceeded,
     #[msg("Variant does not exist.")]
     VariantDoesNotExist,
+    #[msg("Question not finished.")]
+    QuestionNotFinished,
 }

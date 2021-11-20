@@ -129,10 +129,10 @@ mod trivia {
 
     #[derive(Accounts)]
     pub struct RevealQuestion<'info> {
-        #[account(mut, has_one = authority)]
-        question: Account<'info, Question>,
         #[account(mut, constraint = question.game == game.key())]
         game: Account<'info, Game>,
+        #[account(mut, has_one = authority)]
+        question: Account<'info, Question>,
         authority: Signer<'info>,
     }
 
@@ -143,9 +143,9 @@ mod trivia {
         revealed_variants: Vec<String>,
     ) -> ProgramResult {
         let game = &mut ctx.accounts.game;
-        require!(game.started, ErrorCode::GameNotStarted);
-
         let question = &mut ctx.accounts.question;
+
+        require!(game.started, ErrorCode::GameNotStarted);
 
         let question_id = game
             .questions
@@ -181,6 +181,8 @@ mod trivia {
         question.revealed_question = Some(revealed_name);
         question.revealed_variants = Some(revealed_variants);
         question.deadline = Some(Clock::get()?.unix_timestamp + question.time);
+        question.answers = vec![vec![]; question.variants.len()];
+        question.answers_distribution = vec![0; question.variants.len()];
         game.revealed_questions_counter += 1;
 
         Ok(())
@@ -188,10 +190,10 @@ mod trivia {
 
     #[derive(Accounts)]
     pub struct SubmitAnswer<'info> {
-        #[account(mut)]
-        question: Account<'info, Question>,
         #[account(mut, constraint = question.game == game.key())]
         game: Account<'info, Game>,
+        #[account(mut)]
+        question: Account<'info, Question>,
         #[account(init, payer = user, space = 9999)]
         answer: Account<'info, Answer>,
         user: Signer<'info>,
@@ -200,9 +202,10 @@ mod trivia {
 
     pub fn submit_answer(ctx: Context<SubmitAnswer>, variant_id: u32) -> ProgramResult {
         let game = &ctx.accounts.game;
-        require!(game.started, ErrorCode::GameNotStarted);
-
         let question = &mut ctx.accounts.question;
+        let answer = &mut ctx.accounts.answer;
+
+        require!(game.started, ErrorCode::GameNotStarted);
         require!(
             question.revealed_question.is_some(),
             ErrorCode::QuestionIsNotRevealed
@@ -212,17 +215,19 @@ mod trivia {
             ErrorCode::QuestionDeadlineExceeded
         );
 
-        question
-            .variants
-            .get(variant_id as usize)
-            .ok_or(ErrorCode::VariantDoesNotExist)?;
-
-        let answer = &mut ctx.accounts.answer;
         answer.question = question.key();
         answer.variant_id = variant_id;
         answer.user = ctx.accounts.user.key();
 
-        question.votes.push(answer.key());
+        question
+            .answers
+            .get_mut(variant_id as usize)
+            .ok_or(ErrorCode::VariantDoesNotExist)?
+            .push(answer.key());
+        *question
+            .answers_distribution
+            .get_mut(variant_id as usize)
+            .ok_or(ErrorCode::VariantDoesNotExist)? += 1;
 
         Ok(())
     }
