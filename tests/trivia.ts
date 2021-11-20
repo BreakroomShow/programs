@@ -35,7 +35,7 @@ describe("trivia", () => {
         await program.account.trivia.fetch(triviaKeypair.publicKey)
     })
 
-    it("Creates and initializes a game for the Trivia", async () => {
+    it("Creates and initializes a Game for the Trivia", async () => {
         const question = {
             question: sha256("What is the best blockchain?"),
             variants: [
@@ -65,7 +65,19 @@ describe("trivia", () => {
         assert.deepEqual(game.revealedQuestions, [])
     })
 
-    it("Reveals a question for Trivia", async () => {
+    it("Starts the Game", async () => {
+        await program.rpc.startGame({
+            accounts: {
+                game: gameKeypair.publicKey,
+                authority: provider.wallet.publicKey
+            }
+        })
+
+        game = await program.account.game.fetch(gameKeypair.publicKey)
+        assert.equal(game.started, true)
+    })
+
+    it("Reveals a question for the Game", async () => {
         const revealedQuestion = {
             id: 0,
             question: "What is the best blockchain?",

@@ -6,6 +6,10 @@ pub enum ErrorCode {
     Unauthorized,
     #[msg("Invalid game name.")]
     InvalidGameName,
+    #[msg("Game already started.")]
+    GameAlreadyStarted,
+    #[msg("Game not started.")]
+    GameNotStarted,
     #[msg("No questions should be revealed on game creation.")]
     RevealedQuestionsOnGameCreation,
     #[msg("Game does not exist.")]

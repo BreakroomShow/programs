@@ -8,6 +8,7 @@ pub struct Trivia {
 #[account]
 pub struct Game {
     pub trivia: Pubkey, // Trivia this game belongs to
+    pub started: bool,
     pub name: String,
     pub questions: Vec<Question>,
     pub revealed_questions: Vec<RevealedQuestion>,

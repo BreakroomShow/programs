@@ -1,8 +1,7 @@
-use anchor_lang::prelude::*;
-use anchor_lang::solana_program::hash::{hash, Hash};
+use anchor_lang::prelude::{borsh::BorshSerialize, *};
+use anchor_lang::solana_program::hash::{extend_and_hash, hash, Hash};
 
 use crate::auth::auth;
-use crate::borsh::BorshSerialize;
 use crate::data::{Game, Question, RevealedQuestion, Trivia};
 use crate::error::ErrorCode;
 
@@ -14,8 +13,6 @@ declare_id!("Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS");
 
 #[program]
 mod trivia {
-    use anchor_lang::solana_program::hash::extend_and_hash;
-
     use super::*;
 
     #[derive(Accounts)]
@@ -63,6 +60,21 @@ mod trivia {
     }
 
     #[derive(Accounts)]
+    pub struct StartGame<'info> {
+        #[account(mut, has_one = authority)]
+        game: Account<'info, Game>,
+        authority: Signer<'info>,
+    }
+
+    pub fn start_game(ctx: Context<StartGame>) -> ProgramResult {
+        require!(!ctx.accounts.game.started, ErrorCode::GameAlreadyStarted);
+
+        ctx.accounts.game.started = true;
+
+        Ok(())
+    }
+
+    #[derive(Accounts)]
     pub struct RevealQuestion<'info> {
         #[account(mut, has_one = authority)]
         game: Account<'info, Game>,
@@ -78,6 +90,7 @@ mod trivia {
     ) -> ProgramResult {
         let game = &mut ctx.accounts.game;
 
+        require!(game.started, ErrorCode::GameNotStarted);
         require!(
             question_id as usize == game.revealed_questions.len(),
             ErrorCode::QuestionRevealedAhead
