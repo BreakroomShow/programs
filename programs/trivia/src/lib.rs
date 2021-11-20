@@ -71,6 +71,8 @@ mod trivia {
         variants: Vec<[u8; 32]>,
         time: i64,
     ) -> ProgramResult {
+        require!(!ctx.accounts.game.started, ErrorCode::GameAlreadyStarted);
+
         let question = &mut ctx.accounts.question;
         question.game = ctx.accounts.game.key();
         question.question = name;
@@ -79,6 +81,28 @@ mod trivia {
         question.time = time;
 
         ctx.accounts.game.questions.push(question.key());
+
+        Ok(())
+    }
+
+    #[derive(Accounts)]
+    pub struct RemoveQuestion<'info> {
+        #[account(mut, has_one = authority)]
+        game: Account<'info, Game>,
+        authority: Signer<'info>,
+    }
+
+    #[access_control(auth(&ctx.accounts.game.authority, &ctx.accounts.authority.key))]
+    pub fn remove_question(ctx: Context<RemoveQuestion>, key: Pubkey) -> ProgramResult {
+        require!(!ctx.accounts.game.started, ErrorCode::GameAlreadyStarted);
+
+        let questions = &mut ctx.accounts.game.questions;
+
+        let len_before = questions.len();
+        questions.retain(|question| question != &key);
+        let len_after = questions.len();
+
+        require!(len_before != len_after, ErrorCode::QuestionDoesNotExist);
 
         Ok(())
     }

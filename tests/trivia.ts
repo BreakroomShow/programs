@@ -20,6 +20,7 @@ describe("trivia", () => {
     const triviaKeypair = anchor.web3.Keypair.generate()
     const gameKeypair = anchor.web3.Keypair.generate()
     const questionKeypair = anchor.web3.Keypair.generate()
+    const dummyQuestionKeypair = anchor.web3.Keypair.generate()
     const answerKeypair = anchor.web3.Keypair.generate()
 
     it("Initializes a Trivia", async () => {
@@ -79,9 +80,23 @@ describe("trivia", () => {
                 signers: [questionKeypair]
             }
         )
+        await program.rpc.addQuestion(
+            name,
+            variants,
+            new anchor.BN(time),
+            {
+                accounts: {
+                    game: gameKeypair.publicKey,
+                    question: dummyQuestionKeypair.publicKey,
+                    authority: provider.wallet.publicKey,
+                    systemProgram: anchor.web3.SystemProgram.programId
+                },
+                signers: [dummyQuestionKeypair]
+            }
+        )
 
         const game = await program.account.game.fetch(gameKeypair.publicKey)
-        assert.deepEqual(game.questions, [questionKeypair.publicKey])
+        assert.deepEqual(game.questions, [questionKeypair.publicKey, dummyQuestionKeypair.publicKey])
 
         const question = await program.account.question.fetch(questionKeypair.publicKey)
         assert.deepEqual(question.game, gameKeypair.publicKey)
@@ -92,6 +107,21 @@ describe("trivia", () => {
         assert.equal(question.reveleadVariants, null)
         assert.equal(question.deadline, null)
         assert.deepEqual(question.votes, [])
+    })
+
+    it("Removes the Question from the Game", async () => {
+        await program.rpc.removeQuestion(
+            dummyQuestionKeypair.publicKey,
+            {
+                accounts: {
+                    game: gameKeypair.publicKey,
+                    authority: provider.wallet.publicKey
+                }
+            }
+        )
+
+        const game = await program.account.game.fetch(gameKeypair.publicKey)
+        assert.deepEqual(game.questions, [questionKeypair.publicKey])
     })
 
     it("Starts the Game", async () => {
