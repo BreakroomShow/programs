@@ -19,6 +19,7 @@ describe("trivia", () => {
     const program = anchor.workspace.Trivia
     const triviaKeypair = anchor.web3.Keypair.generate()
     const gameKeypair = anchor.web3.Keypair.generate()
+    const answerKeypair = anchor.web3.Keypair.generate()
 
     let game
 
@@ -105,8 +106,36 @@ describe("trivia", () => {
             game.revealedQuestions,
             [{
                 question: revealedQuestion.question,
-                variants: revealedQuestion.variants
+                variants: revealedQuestion.variants,
+                votes: []
             }]
+        )
+    })
+
+    it("Answers the revealed question", async () => {
+        await program.rpc.submitAnswer(
+            0,
+            0,
+            {
+                accounts: {
+                    game: gameKeypair.publicKey,
+                    answer: answerKeypair.publicKey,
+                    user: provider.wallet.publicKey,
+                    systemProgram: anchor.web3.SystemProgram.programId
+                },
+                signers: [answerKeypair]
+            }
+        )
+
+        let answer = await program.account.answer.fetch(answerKeypair.publicKey)
+        assert.deepEqual(answer.game, gameKeypair.publicKey)
+        assert.equal(answer.questionId, 0)
+        assert.equal(answer.variantId, 0)
+
+        game = await program.account.game.fetch(gameKeypair.publicKey)
+        assert.deepEqual(
+            game.revealedQuestions[0].votes,
+            [answerKeypair.publicKey]
         )
     })
 })

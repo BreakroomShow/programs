@@ -22,4 +22,6 @@ pub enum ErrorCode {
     InvalidQuestionHash,
     #[msg("Invalid question variant hash.")]
     InvalidQuestionVariantHash,
+    #[msg("Question is not revealed.")]
+    VariantDoesNotExist,
 }

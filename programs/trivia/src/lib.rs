@@ -2,7 +2,7 @@ use anchor_lang::prelude::{borsh::BorshSerialize, *};
 use anchor_lang::solana_program::hash::{extend_and_hash, hash, Hash};
 
 use crate::auth::auth;
-use crate::data::{Game, Question, RevealedQuestion, Trivia};
+use crate::data::{Answer, Game, Question, RevealedQuestion, Trivia};
 use crate::error::ErrorCode;
 
 mod auth;
@@ -51,7 +51,7 @@ mod trivia {
         require!(!name.is_empty(), ErrorCode::InvalidGameName);
 
         let game = &mut ctx.accounts.game;
-        game.trivia = ctx.accounts.trivia.to_account_info().key();
+        game.trivia = ctx.accounts.trivia.key();
         game.name = name;
         game.questions = questions;
         game.authority = ctx.accounts.authority.key();
@@ -125,7 +125,49 @@ mod trivia {
         game.revealed_questions.push(RevealedQuestion {
             question: revealed_question,
             variants: revealed_variants,
+            ..Default::default()
         });
+
+        Ok(())
+    }
+
+    #[derive(Accounts)]
+    pub struct SubmitAnswer<'info> {
+        #[account(mut)]
+        game: Account<'info, Game>,
+        #[account(init, payer = user, space = 9999)]
+        answer: Account<'info, Answer>,
+        user: Signer<'info>,
+        system_program: Program<'info, System>,
+    }
+
+    pub fn submit_answer(
+        ctx: Context<SubmitAnswer>,
+        question_id: u32,
+        variant_id: u32,
+    ) -> ProgramResult {
+        let game = &mut ctx.accounts.game;
+
+        require!(game.started, ErrorCode::GameNotStarted);
+
+        let game_public_key = game.key();
+
+        let question = game
+            .revealed_questions
+            .get_mut(question_id as usize)
+            .ok_or(ErrorCode::QuestionDoesNotExist)?;
+        question
+            .variants
+            .get(variant_id as usize)
+            .ok_or(ErrorCode::VariantDoesNotExist)?;
+
+        let answer = &mut ctx.accounts.answer;
+        answer.game = game_public_key;
+        answer.question_id = question_id;
+        answer.variant_id = variant_id;
+        answer.user = ctx.accounts.user.key();
+
+        question.votes.push(answer.key());
 
         Ok(())
     }
