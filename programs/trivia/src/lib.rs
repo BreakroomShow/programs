@@ -26,7 +26,6 @@ mod trivia {
 
     pub fn initialize(ctx: Context<InitializeTrivia>) -> ProgramResult {
         let trivia = &mut ctx.accounts.trivia;
-
         trivia.authority = ctx.accounts.authority.key();
 
         Ok(())
@@ -44,9 +43,10 @@ mod trivia {
 
     #[access_control(auth(&ctx.accounts.trivia.authority, &ctx.accounts.authority.key))]
     pub fn create_game(ctx: Context<CreateGame>, name: String) -> ProgramResult {
+        let game = &mut ctx.accounts.game;
+
         require!(!name.is_empty(), ErrorCode::InvalidGameName);
 
-        let game = &mut ctx.accounts.game;
         game.trivia = ctx.accounts.trivia.key();
         game.name = name;
         game.authority = ctx.accounts.authority.key();
@@ -71,16 +71,18 @@ mod trivia {
         variants: Vec<[u8; 32]>,
         time: i64,
     ) -> ProgramResult {
-        require!(!ctx.accounts.game.started, ErrorCode::GameAlreadyStarted);
-
+        let game = &mut ctx.accounts.game;
         let question = &mut ctx.accounts.question;
-        question.game = ctx.accounts.game.key();
+
+        require!(!game.started, ErrorCode::GameAlreadyStarted);
+
+        question.game = game.key();
         question.question = name;
         question.variants = variants;
         question.authority = ctx.accounts.authority.key();
         question.time = time;
 
-        ctx.accounts.game.questions.push(question.key());
+        game.questions.push(question.key());
 
         Ok(())
     }
@@ -94,13 +96,13 @@ mod trivia {
 
     #[access_control(auth(&ctx.accounts.game.authority, &ctx.accounts.authority.key))]
     pub fn remove_question(ctx: Context<RemoveQuestion>, key: Pubkey) -> ProgramResult {
-        require!(!ctx.accounts.game.started, ErrorCode::GameAlreadyStarted);
+        let game = &mut ctx.accounts.game;
 
-        let questions = &mut ctx.accounts.game.questions;
+        require!(!game.started, ErrorCode::GameAlreadyStarted);
 
-        let len_before = questions.len();
-        questions.retain(|question| question != &key);
-        let len_after = questions.len();
+        let len_before = game.questions.len();
+        game.questions.retain(|question| question != &key);
+        let len_after = game.questions.len();
 
         require!(len_before != len_after, ErrorCode::QuestionDoesNotExist);
 
@@ -117,6 +119,7 @@ mod trivia {
     #[access_control(auth(&ctx.accounts.game.authority, &ctx.accounts.authority.key))]
     pub fn start_game(ctx: Context<StartGame>) -> ProgramResult {
         let game = &mut ctx.accounts.game;
+
         require!(!game.started, ErrorCode::GameAlreadyStarted);
 
         game.started = true;
