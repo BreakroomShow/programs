@@ -63,10 +63,12 @@ describe("trivia", () => {
             sha256("What is the best blockchain?", "Solana"),
             sha256("What is the best blockchain?", "Bitcoin")
         ]
+        const time = 10 * 60; // 10 minutes
 
         await program.rpc.addQuestion(
             name,
             variants,
+            new anchor.BN(time),
             {
                 accounts: {
                     game: gameKeypair.publicKey,
@@ -85,8 +87,10 @@ describe("trivia", () => {
         assert.deepEqual(question.game, gameKeypair.publicKey)
         assert.deepEqual(question.question, name)
         assert.deepEqual(question.variants, variants)
+        assert.equal(question.time, time)
         assert.equal(question.revealedQuestion, null)
         assert.equal(question.reveleadVariants, null)
+        assert.equal(question.deadline, null)
         assert.deepEqual(question.votes, [])
     })
 
@@ -128,6 +132,8 @@ describe("trivia", () => {
         const question = await program.account.question.fetch(questionKeypair.publicKey)
         assert.equal(question.revealedQuestion, name)
         assert.deepEqual(question.revealedVariants, variants)
+        assert.notEqual(question.deadline, null)
+        assert.ok(question.deadline.toNumber() < Date.now() / 1000 + question.time.toNumber())
     })
 
     it("Answers the revealed question", async () => {

@@ -69,12 +69,14 @@ mod trivia {
         ctx: Context<AddQuestion>,
         name: [u8; 32],
         variants: Vec<[u8; 32]>,
+        time: i64,
     ) -> ProgramResult {
         let question = &mut ctx.accounts.question;
         question.game = ctx.accounts.game.key();
         question.question = name;
         question.variants = variants;
         question.authority = ctx.accounts.authority.key();
+        question.time = time;
 
         ctx.accounts.game.questions.push(question.key());
 
@@ -151,6 +153,7 @@ mod trivia {
 
         question.revealed_question = Some(revealed_name);
         question.revealed_variants = Some(revealed_variants);
+        question.deadline = Some(Clock::get()?.unix_timestamp + question.time);
         game.revealed_questions_counter += 1;
 
         Ok(())
@@ -173,6 +176,14 @@ mod trivia {
         require!(game.started, ErrorCode::GameNotStarted);
 
         let question = &mut ctx.accounts.question;
+        require!(
+            question.revealed_question.is_some(),
+            ErrorCode::QuestionIsNotRevealed
+        );
+        require!(
+            question.deadline.unwrap() > Clock::get()?.unix_timestamp,
+            ErrorCode::QuestionDeadlineExceeded
+        );
 
         question
             .variants
