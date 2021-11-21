@@ -241,7 +241,6 @@ describe("trivia", () => {
 
         assert.deepEqual(event.game, gameKeypair.publicKey)
         assert.deepEqual(event.question, questionKeypair.publicKey)
-        assert.equal(event.answerVariantId, 2)
 
         const question = await program.account.question.fetch(questionKeypair.publicKey)
         assert.equal(question.revealedAnswerVariantId, 2)

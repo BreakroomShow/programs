@@ -12,5 +12,4 @@ export interface RevealQuestionEvent {
 export interface RevealAnswerEvent {
     game: anchor.web3.PublicKey
     question: anchor.web3.PublicKey
-    answerVariantId: number
 }

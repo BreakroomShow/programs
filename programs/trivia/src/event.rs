@@ -15,5 +15,4 @@ pub struct RevealQuestionEvent {
 pub struct RevealAnswerEvent {
     pub game: Pubkey,
     pub question: Pubkey,
-    pub answer_variant_id: u32,
 }

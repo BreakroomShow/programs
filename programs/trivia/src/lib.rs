@@ -228,8 +228,7 @@ mod trivia {
 
         emit!(RevealAnswerEvent {
             game: game.key(),
-            question: question.key(),
-            answer_variant_id: revealed_variant_id
+            question: question.key()
         });
 
         Ok(())
