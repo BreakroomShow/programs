@@ -110,6 +110,22 @@ describe("trivia", () => {
         assert.equal(question.revealedQuestion, null)
     })
 
+    it("Moves the question in the Game", async () => {
+        await program.rpc.moveQuestion(
+            dummyQuestionKeypair.publicKey,
+            0,
+            {
+                accounts: {
+                    game: gameKeypair.publicKey,
+                    authority: provider.wallet.publicKey
+                }
+            }
+        )
+
+        const game: Game = await program.account.game.fetch(gameKeypair.publicKey)
+        assert.deepEqual(game.questions, [dummyQuestionKeypair.publicKey, questionKeypair.publicKey])
+    })
+
     it("Removes the Question from the Game", async () => {
         await program.rpc.removeQuestion(
             dummyQuestionKeypair.publicKey,

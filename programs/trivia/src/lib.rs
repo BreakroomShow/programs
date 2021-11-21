@@ -92,23 +92,31 @@ mod trivia {
     }
 
     #[derive(Accounts)]
-    pub struct RemoveQuestion<'info> {
+    pub struct EditQuestion<'info> {
         #[account(mut, has_one = authority)]
         game: Account<'info, Game>,
         authority: Signer<'info>,
     }
 
     #[access_control(auth(&ctx.accounts.game.authority, &ctx.accounts.authority.key))]
-    pub fn remove_question(ctx: Context<RemoveQuestion>, key: Pubkey) -> ProgramResult {
-        let game = &mut ctx.accounts.game;
+    pub fn remove_question(ctx: Context<EditQuestion>, question_key: Pubkey) -> ProgramResult {
+        remove_question_from_game(&mut ctx.accounts.game, question_key)?;
 
-        require!(!game.started, ErrorCode::GameAlreadyStarted);
+        Ok(())
+    }
 
-        let len_before = game.questions.len();
-        game.questions.retain(|question| question != &key);
-        let len_after = game.questions.len();
+    #[access_control(auth(&ctx.accounts.game.authority, &ctx.accounts.authority.key))]
+    pub fn move_question(
+        ctx: Context<EditQuestion>,
+        question_key: Pubkey,
+        new_position: u32,
+    ) -> ProgramResult {
+        remove_question_from_game(&mut ctx.accounts.game, question_key)?;
 
-        require!(len_before != len_after, ErrorCode::QuestionDoesNotExist);
+        ctx.accounts
+            .game
+            .questions
+            .insert(new_position as usize, question_key);
 
         Ok(())
     }
@@ -286,4 +294,16 @@ mod trivia {
 
         Ok(())
     }
+}
+
+fn remove_question_from_game(game: &mut Account<Game>, question_key: Pubkey) -> ProgramResult {
+    require!(!game.started, ErrorCode::GameAlreadyStarted);
+
+    let len_before = game.questions.len();
+    game.questions.retain(|question| question != &question_key);
+    let len_after = game.questions.len();
+
+    require!(len_before != len_after, ErrorCode::QuestionDoesNotExist);
+
+    Ok(())
 }
