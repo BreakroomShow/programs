@@ -30,7 +30,6 @@ pub struct Question {
     pub revealed_variants: Option<Vec<String>>,
     pub deadline: Option<i64>,
     pub answers: Vec<Vec<Pubkey>>,
-    pub answers_distribution: Vec<u32>,
 }
 
 #[account]

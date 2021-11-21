@@ -182,7 +182,6 @@ mod trivia {
         question.revealed_variants = Some(revealed_variants);
         question.deadline = Some(Clock::get()?.unix_timestamp + question.time);
         question.answers = vec![vec![]; question.variants.len()];
-        question.answers_distribution = vec![0; question.variants.len()];
         game.revealed_questions_counter += 1;
 
         Ok(())
@@ -224,10 +223,6 @@ mod trivia {
             .get_mut(variant_id as usize)
             .ok_or(ErrorCode::VariantDoesNotExist)?
             .push(answer.key());
-        *question
-            .answers_distribution
-            .get_mut(variant_id as usize)
-            .ok_or(ErrorCode::VariantDoesNotExist)? += 1;
 
         Ok(())
     }

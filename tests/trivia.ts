@@ -107,7 +107,6 @@ describe("trivia", () => {
         assert.equal(question.reveleadVariants, null)
         assert.equal(question.deadline, null)
         assert.deepEqual(question.answers, [])
-        assert.deepEqual(question.answersDistribution, [])
     })
 
     it("Removes the Question from the Game", async () => {
@@ -166,7 +165,6 @@ describe("trivia", () => {
         assert.notEqual(question.deadline, null)
         assert.ok(question.deadline.toNumber() < Date.now() / 1000 + question.time.toNumber())
         assert.deepEqual(question.answers, [[], [], []])
-        assert.deepEqual(question.answersDistribution, [0, 0, 0])
     })
 
     it("Answers the revealed question", async () => {
@@ -192,10 +190,6 @@ describe("trivia", () => {
         assert.deepEqual(
             question.answers,
             [[], [answerKeypair.publicKey], []]
-        )
-        assert.deepEqual(
-            question.answersDistribution,
-            [0, 1, 0]
         )
     })
 })
