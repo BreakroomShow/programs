@@ -28,8 +28,9 @@ pub struct Question {
 
     pub revealed_question: Option<String>,
     pub revealed_variants: Option<Vec<String>>,
+    pub revealed_answer_variant_id: Option<u32>,
     pub deadline: Option<i64>,
-    pub answers: Vec<Vec<Pubkey>>,
+    pub answers: Option<Vec<Vec<Pubkey>>>,
 }
 
 #[account]

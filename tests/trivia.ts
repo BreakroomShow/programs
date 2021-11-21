@@ -1,5 +1,6 @@
 import * as anchor from "@project-serum/anchor"
 import * as assert from "assert"
+import {RevealAnswerEvent, RevealQuestionEvent, StartGameEvent} from "../types/event"
 
 function sha256(...values: string[]) {
     const sha256 = require("js-sha256")
@@ -22,6 +23,8 @@ describe("trivia", () => {
     const questionKeypair = anchor.web3.Keypair.generate()
     const dummyQuestionKeypair = anchor.web3.Keypair.generate()
     const answerKeypair = anchor.web3.Keypair.generate()
+
+    let questionDeadline: Date
 
     it("Initializes a Trivia", async () => {
         await program.rpc.initialize({
@@ -64,7 +67,7 @@ describe("trivia", () => {
             sha256("What is the best blockchain?", "Solana"),
             sha256("What is the best blockchain?", "Bitcoin")
         ]
-        const time = 10 * 60; // 10 minutes
+        const time = 10 // 10 seconds
 
         await program.rpc.addQuestion(
             name,
@@ -106,7 +109,7 @@ describe("trivia", () => {
         assert.equal(question.revealedQuestion, null)
         assert.equal(question.reveleadVariants, null)
         assert.equal(question.deadline, null)
-        assert.deepEqual(question.answers, [])
+        assert.deepEqual(question.answers, null)
     })
 
     it("Removes the Question from the Game", async () => {
@@ -125,18 +128,27 @@ describe("trivia", () => {
     })
 
     it("Starts the Game", async () => {
-        await program.rpc.startGame({
-            accounts: {
-                game: gameKeypair.publicKey,
-                authority: provider.wallet.publicKey
-            }
+        const event: StartGameEvent = await new Promise(async resolve => {
+            const listener = program.addEventListener("StartGameEvent", async event => {
+                await program.removeEventListener(listener)
+                resolve(event)
+            })
+
+            await program.rpc.startGame({
+                accounts: {
+                    game: gameKeypair.publicKey,
+                    authority: provider.wallet.publicKey
+                }
+            })
         })
+
+        assert.deepEqual(event.game, gameKeypair.publicKey)
 
         const game = await program.account.game.fetch(gameKeypair.publicKey)
         assert.equal(game.started, true)
     })
 
-    it("Reveals a question for the Game", async () => {
+    it("Reveals a Question for the Game", async () => {
         const name = "What is the best blockchain?"
         const variants = [
             "Ethereum",
@@ -144,17 +156,27 @@ describe("trivia", () => {
             "Bitcoin"
         ]
 
-        await program.rpc.revealQuestion(
-            name,
-            variants,
-            {
-                accounts: {
-                    question: questionKeypair.publicKey,
-                    game: gameKeypair.publicKey,
-                    authority: provider.wallet.publicKey
+        const event: RevealQuestionEvent = await new Promise(async resolve => {
+            const listener = program.addEventListener("RevealQuestionEvent", async event => {
+                await program.removeEventListener(listener)
+                resolve(event)
+            })
+
+            await program.rpc.revealQuestion(
+                name,
+                variants,
+                {
+                    accounts: {
+                        question: questionKeypair.publicKey,
+                        game: gameKeypair.publicKey,
+                        authority: provider.wallet.publicKey
+                    }
                 }
-            }
-        )
+            )
+        })
+
+        assert.deepEqual(event.game, gameKeypair.publicKey)
+        assert.deepEqual(event.question, questionKeypair.publicKey)
 
         const game = await program.account.game.fetch(gameKeypair.publicKey)
         assert.equal(game.revealedQuestionsCounter, 1)
@@ -165,9 +187,11 @@ describe("trivia", () => {
         assert.notEqual(question.deadline, null)
         assert.ok(question.deadline.toNumber() < Date.now() / 1000 + question.time.toNumber())
         assert.deepEqual(question.answers, [[], [], []])
+
+        questionDeadline = new Date(question.deadline.toNumber() * 1000)
     })
 
-    it("Answers the revealed question", async () => {
+    it("Submits an Answer for the revealed Question", async () => {
         await program.rpc.submitAnswer(
             1,
             {
@@ -191,5 +215,35 @@ describe("trivia", () => {
             question.answers,
             [[], [answerKeypair.publicKey], []]
         )
+    })
+
+    it("Reveals an Answer for the finished Question", async () => {
+        await new Promise(resolve =>
+            setTimeout(resolve, Math.ceil((questionDeadline.getTime() - new Date().getTime()) / 1000 + 1) * 1000))
+
+        const event: RevealAnswerEvent = await new Promise(async resolve => {
+            const listener = program.addEventListener("RevealAnswerEvent", async event => {
+                await program.removeEventListener(listener)
+                resolve(event)
+            })
+
+            await program.rpc.revealAnswer(
+                2,
+                {
+                    accounts: {
+                        question: questionKeypair.publicKey,
+                        game: gameKeypair.publicKey,
+                        authority: provider.wallet.publicKey
+                    }
+                }
+            )
+        })
+
+        assert.deepEqual(event.game, gameKeypair.publicKey)
+        assert.deepEqual(event.question, questionKeypair.publicKey)
+        assert.equal(event.answerVariantId, 2)
+
+        const question = await program.account.question.fetch(questionKeypair.publicKey)
+        assert.equal(question.revealedAnswerVariantId, 2)
     })
 })

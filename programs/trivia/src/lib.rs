@@ -4,10 +4,12 @@ use anchor_lang::solana_program::hash::{extend_and_hash, hash, Hash};
 use crate::auth::auth;
 use crate::data::{Answer, Game, Question, Trivia};
 use crate::error::ErrorCode;
+use crate::event::{RevealAnswerEvent, RevealQuestionEvent, StartGameEvent};
 
 mod auth;
 mod data;
 mod error;
+mod event;
 
 declare_id!("Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS");
 
@@ -124,6 +126,8 @@ mod trivia {
 
         game.started = true;
 
+        emit!(StartGameEvent { game: game.key() });
+
         Ok(())
     }
 
@@ -181,8 +185,52 @@ mod trivia {
         question.revealed_question = Some(revealed_name);
         question.revealed_variants = Some(revealed_variants);
         question.deadline = Some(Clock::get()?.unix_timestamp + question.time);
-        question.answers = vec![vec![]; question.variants.len()];
+        question.answers = Some(vec![vec![]; question.variants.len()]);
         game.revealed_questions_counter += 1;
+
+        emit!(RevealQuestionEvent {
+            game: game.key(),
+            question: question.key()
+        });
+
+        Ok(())
+    }
+
+    #[derive(Accounts)]
+    pub struct RevealAnswer<'info> {
+        #[account(mut, constraint = question.game == game.key())]
+        game: Account<'info, Game>,
+        #[account(mut, has_one = authority)]
+        question: Account<'info, Question>,
+        authority: Signer<'info>,
+    }
+
+    #[access_control(auth(&ctx.accounts.question.authority, &ctx.accounts.authority.key))]
+    pub fn reveal_answer(ctx: Context<RevealQuestion>, revealed_variant_id: u32) -> ProgramResult {
+        let game = &mut ctx.accounts.game;
+        let question = &mut ctx.accounts.question;
+
+        require!(game.started, ErrorCode::GameNotStarted);
+        require!(
+            question.revealed_question.is_some(),
+            ErrorCode::QuestionIsNotRevealed
+        );
+        require!(
+            question.deadline.unwrap() <= Clock::get()?.unix_timestamp,
+            ErrorCode::QuestionDeadlineNotExceeded
+        );
+        require!(
+            revealed_variant_id < question.variants.len() as u32,
+            ErrorCode::VariantDoesNotExist
+        );
+
+        question.revealed_answer_variant_id = Some(revealed_variant_id);
+
+        emit!(RevealAnswerEvent {
+            game: game.key(),
+            question: question.key(),
+            answer_variant_id: revealed_variant_id
+        });
 
         Ok(())
     }
@@ -220,6 +268,8 @@ mod trivia {
 
         question
             .answers
+            .as_mut()
+            .unwrap()
             .get_mut(variant_id as usize)
             .ok_or(ErrorCode::VariantDoesNotExist)?
             .push(answer.key());
