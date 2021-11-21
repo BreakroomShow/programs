@@ -15,6 +15,8 @@ declare_id!("Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS");
 
 #[program]
 mod trivia {
+    use crate::data::RevealedQuestion;
+
     use super::*;
 
     #[derive(Accounts)]
@@ -182,10 +184,14 @@ mod trivia {
             );
         }
 
-        question.revealed_question = Some(revealed_name);
-        question.revealed_variants = Some(revealed_variants);
-        question.deadline = Some(Clock::get()?.unix_timestamp + question.time);
-        question.answers = Some(vec![vec![]; question.variants.len()]);
+        question.revealed_question = Some(RevealedQuestion {
+            question: revealed_name,
+            variants: revealed_variants,
+            deadline: Clock::get()?.unix_timestamp + question.time,
+            answers: vec![vec![]; question.variants.len()],
+            ..Default::default()
+        });
+
         game.revealed_questions_counter += 1;
 
         emit!(RevealQuestionEvent {
@@ -216,7 +222,7 @@ mod trivia {
             ErrorCode::QuestionIsNotRevealed
         );
         require!(
-            question.deadline.unwrap() <= Clock::get()?.unix_timestamp,
+            question.revealed_question.as_ref().unwrap().deadline <= Clock::get()?.unix_timestamp,
             ErrorCode::QuestionDeadlineNotExceeded
         );
         require!(
@@ -224,7 +230,11 @@ mod trivia {
             ErrorCode::VariantDoesNotExist
         );
 
-        question.revealed_answer_variant_id = Some(revealed_variant_id);
+        question
+            .revealed_question
+            .as_mut()
+            .unwrap()
+            .answer_variant_id = Some(revealed_variant_id);
 
         emit!(RevealAnswerEvent {
             game: game.key(),
@@ -257,7 +267,7 @@ mod trivia {
             ErrorCode::QuestionIsNotRevealed
         );
         require!(
-            question.deadline.unwrap() > Clock::get()?.unix_timestamp,
+            question.revealed_question.as_ref().unwrap().deadline > Clock::get()?.unix_timestamp,
             ErrorCode::QuestionDeadlineExceeded
         );
 
@@ -266,9 +276,10 @@ mod trivia {
         answer.user = ctx.accounts.user.key();
 
         question
-            .answers
+            .revealed_question
             .as_mut()
             .unwrap()
+            .answers
             .get_mut(variant_id as usize)
             .ok_or(ErrorCode::VariantDoesNotExist)?
             .push(answer.key());

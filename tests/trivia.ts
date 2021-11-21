@@ -1,6 +1,7 @@
 import * as anchor from "@project-serum/anchor"
 import * as assert from "assert"
 import {RevealAnswerEvent, RevealQuestionEvent, StartGameEvent} from "../types/event"
+import {Answer, Game, Question} from "../types/data"
 
 function sha256(...values: string[]) {
     const sha256 = require("js-sha256")
@@ -53,7 +54,7 @@ describe("trivia", () => {
             }
         )
 
-        const game = await program.account.game.fetch(gameKeypair.publicKey)
+        const game: Game = await program.account.game.fetch(gameKeypair.publicKey)
         assert.equal(game.started, false)
         assert.equal(game.name, "Clever")
         assert.deepEqual(game.questions, [])
@@ -98,18 +99,15 @@ describe("trivia", () => {
             }
         )
 
-        const game = await program.account.game.fetch(gameKeypair.publicKey)
+        const game: Game = await program.account.game.fetch(gameKeypair.publicKey)
         assert.deepEqual(game.questions, [questionKeypair.publicKey, dummyQuestionKeypair.publicKey])
 
-        const question = await program.account.question.fetch(questionKeypair.publicKey)
+        const question: Question = await program.account.question.fetch(questionKeypair.publicKey)
         assert.deepEqual(question.game, gameKeypair.publicKey)
         assert.deepEqual(question.question, name)
         assert.deepEqual(question.variants, variants)
         assert.equal(question.time, time)
         assert.equal(question.revealedQuestion, null)
-        assert.equal(question.reveleadVariants, null)
-        assert.equal(question.deadline, null)
-        assert.deepEqual(question.answers, null)
     })
 
     it("Removes the Question from the Game", async () => {
@@ -123,7 +121,7 @@ describe("trivia", () => {
             }
         )
 
-        const game = await program.account.game.fetch(gameKeypair.publicKey)
+        const game: Game = await program.account.game.fetch(gameKeypair.publicKey)
         assert.deepEqual(game.questions, [questionKeypair.publicKey])
     })
 
@@ -144,7 +142,7 @@ describe("trivia", () => {
 
         assert.deepEqual(event.game, gameKeypair.publicKey)
 
-        const game = await program.account.game.fetch(gameKeypair.publicKey)
+        const game: Game = await program.account.game.fetch(gameKeypair.publicKey)
         assert.equal(game.started, true)
     })
 
@@ -178,17 +176,17 @@ describe("trivia", () => {
         assert.deepEqual(event.game, gameKeypair.publicKey)
         assert.deepEqual(event.question, questionKeypair.publicKey)
 
-        const game = await program.account.game.fetch(gameKeypair.publicKey)
+        const game: Game = await program.account.game.fetch(gameKeypair.publicKey)
         assert.equal(game.revealedQuestionsCounter, 1)
 
-        const question = await program.account.question.fetch(questionKeypair.publicKey)
-        assert.equal(question.revealedQuestion, name)
-        assert.deepEqual(question.revealedVariants, variants)
-        assert.notEqual(question.deadline, null)
-        assert.ok(question.deadline.toNumber() < Date.now() / 1000 + question.time.toNumber())
-        assert.deepEqual(question.answers, [[], [], []])
+        const question: Question = await program.account.question.fetch(questionKeypair.publicKey)
+        assert.equal(question.revealedQuestion.question, name)
+        assert.deepEqual(question.revealedQuestion.variants, variants)
+        assert.notEqual(question.revealedQuestion.deadline, null)
+        assert.ok(question.revealedQuestion.deadline.toNumber() < Date.now() / 1000 + question.time.toNumber())
+        assert.deepEqual(question.revealedQuestion.answers, [[], [], []])
 
-        questionDeadline = new Date(question.deadline.toNumber() * 1000)
+        questionDeadline = new Date(question.revealedQuestion.deadline.toNumber() * 1000)
     })
 
     it("Submits an Answer for the revealed Question", async () => {
@@ -206,13 +204,13 @@ describe("trivia", () => {
             }
         )
 
-        const answer = await program.account.answer.fetch(answerKeypair.publicKey)
+        const answer: Answer = await program.account.answer.fetch(answerKeypair.publicKey)
         assert.deepEqual(answer.question, questionKeypair.publicKey)
         assert.equal(answer.variantId, 1)
 
-        const question = await program.account.question.fetch(questionKeypair.publicKey)
+        const question: Question = await program.account.question.fetch(questionKeypair.publicKey)
         assert.deepEqual(
-            question.answers,
+            question.revealedQuestion.answers,
             [[], [answerKeypair.publicKey], []]
         )
     })
@@ -242,7 +240,7 @@ describe("trivia", () => {
         assert.deepEqual(event.game, gameKeypair.publicKey)
         assert.deepEqual(event.question, questionKeypair.publicKey)
 
-        const question = await program.account.question.fetch(questionKeypair.publicKey)
-        assert.equal(question.revealedAnswerVariantId, 2)
+        const question: Question = await program.account.question.fetch(questionKeypair.publicKey)
+        assert.equal(question.revealedQuestion.answerVariantId, 2)
     })
 })

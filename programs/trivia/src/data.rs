@@ -24,13 +24,19 @@ pub struct Question {
 
     pub question: [u8; 32],      // SHA256 hash of question == sha256(question)
     pub variants: Vec<[u8; 32]>, // SHA256 hashes of answers == sha256(sha256(question) + answer))
-    pub time: i64,
+    pub time: i64,               // seconds
 
-    pub revealed_question: Option<String>,
-    pub revealed_variants: Option<Vec<String>>,
-    pub revealed_answer_variant_id: Option<u32>,
-    pub deadline: Option<i64>,
-    pub answers: Option<Vec<Vec<Pubkey>>>,
+    pub revealed_question: Option<RevealedQuestion>,
+}
+
+#[derive(Default, Clone, AnchorSerialize, AnchorDeserialize)]
+pub struct RevealedQuestion {
+    pub question: String,
+    pub variants: Vec<String>,
+    pub deadline: i64, // unix timestamp in seconds
+    pub answers: Vec<Vec<Pubkey>>,
+
+    pub answer_variant_id: Option<u32>,
 }
 
 #[account]
