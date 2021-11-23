@@ -4,6 +4,14 @@ export interface Trivia {
     authority: anchor.web3.PublicKey
 }
 
+export interface Player {
+    trivia: anchor.web3.PublicKey
+    authority: anchor.web3.PublicKey
+
+    finishedGamesCounter: number
+    leftInvitesCounter: number
+}
+
 export interface Game {
     trivia: anchor.web3.PublicKey
     authority: anchor.web3.PublicKey
@@ -36,7 +44,7 @@ export interface RevealedQuestion {
 
 export interface Answer {
     question: anchor.web3.PublicKey
-    user: anchor.web3.PublicKey
+    authority: anchor.web3.PublicKey
 
     variantId: number
 }

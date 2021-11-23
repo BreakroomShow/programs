@@ -1,7 +1,7 @@
 import * as anchor from "@project-serum/anchor"
 import * as assert from "assert"
 import {RevealAnswerEvent, RevealQuestionEvent, StartGameEvent} from "../types/event"
-import {Answer, Game, Question} from "../types/data"
+import {Answer, Game, Player, Question} from "../types/data"
 import {promiseWithTimeout} from "./utils"
 import {ANSWER, WHITELISTED_PLAYER} from "../types/seed"
 
@@ -244,7 +244,7 @@ describe("trivia", () => {
             }
         )
 
-        const player = await program.account.player.fetch(playerPDA)
+        const player: Player = await program.account.player.fetch(playerPDA)
         assert.equal(player.leftInvitesCounter, 1)
     })
 
@@ -283,7 +283,7 @@ describe("trivia", () => {
             }
         )
 
-        const player = await program.account.player.fetch(playerPDA)
+        const player: Player = await program.account.player.fetch(playerPDA)
         assert.equal(player.leftInvitesCounter, 0)
     })
 
@@ -398,7 +398,7 @@ describe("trivia", () => {
             [[], [answerPDA], []]
         )
 
-        const player = await program.account.player.fetch(playerPDA)
+        const player: Player = await program.account.player.fetch(playerPDA)
         assert.equal(player.finishedGamesCounter, 1)
     })
 
