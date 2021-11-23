@@ -21,3 +21,19 @@ describe("sha256", () => {
         assert.deepEqual(decode("e6b909f7443062918636b41ecc22b45276caf2f1fb2cccf0b22f6daab4d783b2"), sha256("hello", "world"))
     })
 })
+
+export function promiseWithTimeout<T>(
+    promise: Promise<T>,
+    ms: number,
+    timeoutError = new Error('Promise timed out')
+): Promise<T> {
+    // create a promise that rejects in milliseconds
+    const timeout = new Promise<never>((_, reject) => {
+        setTimeout(() => {
+            reject(timeoutError);
+        }, ms);
+    });
+
+    // returns a race between timeout and the passed promise
+    return Promise.race<T>([promise, timeout]);
+}

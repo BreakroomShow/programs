@@ -1,22 +1,20 @@
 use anchor_lang::prelude::{borsh::BorshSerialize, *};
 use anchor_lang::solana_program::hash::{extend_and_hash, hash, Hash};
 
-use crate::auth::auth;
-use crate::data::{Answer, Game, Question, Trivia};
+use crate::data::{Answer, Game, Player, Question, RevealedQuestion, Trivia};
 use crate::error::ErrorCode;
 use crate::event::{RevealAnswerEvent, RevealQuestionEvent, StartGameEvent};
 
-mod auth;
+mod access;
 mod data;
 mod error;
 mod event;
+mod seed;
 
 declare_id!("Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS");
 
 #[program]
 mod trivia {
-    use crate::data::RevealedQuestion;
-
     use super::*;
 
     #[derive(Accounts)]
@@ -36,6 +34,94 @@ mod trivia {
     }
 
     #[derive(Accounts)]
+    #[instruction(player_key: Pubkey, bump: u8)]
+    pub struct WhitelistPlayer<'info> {
+        #[account(has_one = authority)]
+        trivia: Account<'info, Trivia>,
+        #[account(
+            init,
+            payer = authority,
+            seeds = [seed::WHITELISTED_PLAYER.as_ref(), trivia.key().as_ref(), player_key.as_ref()],
+            bump = bump
+        )]
+        whitelisted_player: Account<'info, Player>,
+        authority: Signer<'info>,
+        system_program: Program<'info, System>,
+    }
+
+    #[access_control(access::admin(&ctx.accounts.trivia.authority, &ctx.accounts.authority))]
+    pub fn whitelist_player(
+        ctx: Context<WhitelistPlayer>,
+        player_key: Pubkey,
+        bump: u8,
+    ) -> ProgramResult {
+        let player = &mut ctx.accounts.whitelisted_player;
+
+        player.trivia = ctx.accounts.trivia.key();
+        player.authority = player_key;
+        player.bump = bump;
+
+        Ok(())
+    }
+
+    #[derive(Accounts)]
+    pub struct AddPlayerInvite<'info> {
+        #[account(has_one = authority)]
+        trivia: Account<'info, Trivia>,
+        #[account(mut, has_one = trivia)]
+        player: Account<'info, Player>,
+        authority: Signer<'info>,
+    }
+
+    #[access_control(access::admin(&ctx.accounts.trivia.authority, &ctx.accounts.authority))]
+    pub fn add_player_invite(ctx: Context<AddPlayerInvite>) -> ProgramResult {
+        ctx.accounts.player.left_invites_counter += 1;
+
+        Ok(())
+    }
+
+    #[derive(Accounts)]
+    #[instruction(player_key: Pubkey, bump: u8)]
+    pub struct InvitePlayer<'info> {
+        #[account()]
+        trivia: Account<'info, Trivia>,
+        #[account(
+            init,
+            payer = authority,
+            seeds = [seed::WHITELISTED_PLAYER.as_ref(), trivia.key().as_ref(), player_key.as_ref()],
+            bump = bump
+        )]
+        invited_player: Account<'info, Player>,
+        #[account(mut, has_one = authority, has_one = trivia)]
+        player: Account<'info, Player>,
+        authority: Signer<'info>,
+        system_program: Program<'info, System>,
+    }
+
+    #[access_control(access::player(&ctx.accounts.trivia, &ctx.accounts.player, &ctx.accounts.authority))]
+    pub fn invite_player(
+        ctx: Context<InvitePlayer>,
+        player_key: Pubkey,
+        bump: u8,
+    ) -> ProgramResult {
+        let player = &mut ctx.accounts.player;
+        let invited_player = &mut ctx.accounts.invited_player;
+
+        require!(
+            player.left_invites_counter > 0,
+            ErrorCode::NotEnoughInvitesLeft
+        );
+
+        invited_player.trivia = ctx.accounts.trivia.key();
+        invited_player.authority = player_key;
+        invited_player.bump = bump;
+
+        player.left_invites_counter -= 1;
+
+        Ok(())
+    }
+
+    #[derive(Accounts)]
     pub struct CreateGame<'info> {
         #[account(mut, has_one = authority)]
         trivia: Account<'info, Trivia>,
@@ -45,7 +131,7 @@ mod trivia {
         system_program: Program<'info, System>,
     }
 
-    #[access_control(auth(&ctx.accounts.trivia.authority, &ctx.accounts.authority.key))]
+    #[access_control(access::admin(&ctx.accounts.trivia.authority, &ctx.accounts.authority))]
     pub fn create_game(ctx: Context<CreateGame>, name: String) -> ProgramResult {
         let game = &mut ctx.accounts.game;
 
@@ -68,7 +154,7 @@ mod trivia {
         system_program: Program<'info, System>,
     }
 
-    #[access_control(auth(&ctx.accounts.game.authority, &ctx.accounts.authority.key))]
+    #[access_control(access::admin(&ctx.accounts.game.authority, &ctx.accounts.authority))]
     pub fn add_question(
         ctx: Context<AddQuestion>,
         name: [u8; 32],
@@ -98,14 +184,14 @@ mod trivia {
         authority: Signer<'info>,
     }
 
-    #[access_control(auth(&ctx.accounts.game.authority, &ctx.accounts.authority.key))]
+    #[access_control(access::admin(&ctx.accounts.game.authority, &ctx.accounts.authority))]
     pub fn remove_question(ctx: Context<EditQuestion>, question_key: Pubkey) -> ProgramResult {
         remove_question_from_game(&mut ctx.accounts.game, question_key)?;
 
         Ok(())
     }
 
-    #[access_control(auth(&ctx.accounts.game.authority, &ctx.accounts.authority.key))]
+    #[access_control(access::admin(&ctx.accounts.game.authority, &ctx.accounts.authority))]
     pub fn move_question(
         ctx: Context<EditQuestion>,
         question_key: Pubkey,
@@ -128,7 +214,7 @@ mod trivia {
         authority: Signer<'info>,
     }
 
-    #[access_control(auth(&ctx.accounts.game.authority, &ctx.accounts.authority.key))]
+    #[access_control(access::admin(&ctx.accounts.game.authority, &ctx.accounts.authority))]
     pub fn start_game(ctx: Context<StartGame>) -> ProgramResult {
         let game = &mut ctx.accounts.game;
 
@@ -150,7 +236,7 @@ mod trivia {
         authority: Signer<'info>,
     }
 
-    #[access_control(auth(&ctx.accounts.question.authority, &ctx.accounts.authority.key))]
+    #[access_control(access::admin(&ctx.accounts.question.authority, &ctx.accounts.authority))]
     pub fn reveal_question(
         ctx: Context<RevealQuestion>,
         revealed_name: String,
@@ -164,7 +250,7 @@ mod trivia {
         let question_id = game
             .questions
             .iter()
-            .position(|q| q == &question.key())
+            .position(|&q| q == question.key())
             .ok_or(ErrorCode::QuestionDoesNotExist)?;
         require!(
             question_id as u32 == game.revealed_questions_counter,
@@ -184,7 +270,7 @@ mod trivia {
 
         for (revealed_variant, variant) in revealed_variants
             .iter()
-            .zip(question.variants.iter().map(|variant| Hash(*variant)))
+            .zip(question.variants.iter().map(|&variant| Hash(variant)))
         {
             require!(
                 extend_and_hash(&revealed_question_hash, revealed_variant.as_bytes()) == variant,
@@ -211,6 +297,49 @@ mod trivia {
     }
 
     #[derive(Accounts)]
+    pub struct SubmitAnswer<'info> {
+        #[account(mut, constraint = question.game == game.key())]
+        game: Account<'info, Game>,
+        #[account(mut)]
+        question: Account<'info, Question>,
+        #[account(init, payer = authority, space = 9999)]
+        answer: Account<'info, Answer>,
+        authority: Signer<'info>,
+        system_program: Program<'info, System>,
+    }
+
+    pub fn submit_answer(ctx: Context<SubmitAnswer>, variant_id: u32) -> ProgramResult {
+        let game = &ctx.accounts.game;
+        let question = &mut ctx.accounts.question;
+        let answer = &mut ctx.accounts.answer;
+
+        require!(game.started, ErrorCode::GameNotStarted);
+        require!(
+            question.revealed_question.is_some(),
+            ErrorCode::QuestionIsNotRevealed
+        );
+        require!(
+            question.revealed_question.as_ref().unwrap().deadline > Clock::get()?.unix_timestamp,
+            ErrorCode::QuestionDeadlineExceeded
+        );
+
+        answer.question = question.key();
+        answer.variant_id = variant_id;
+        answer.authority = ctx.accounts.authority.key();
+
+        question
+            .revealed_question
+            .as_mut()
+            .unwrap()
+            .answers
+            .get_mut(variant_id as usize)
+            .ok_or(ErrorCode::VariantDoesNotExist)?
+            .push(answer.key());
+
+        Ok(())
+    }
+
+    #[derive(Accounts)]
     pub struct RevealAnswer<'info> {
         #[account(mut, constraint = question.game == game.key())]
         game: Account<'info, Game>,
@@ -219,8 +348,8 @@ mod trivia {
         authority: Signer<'info>,
     }
 
-    #[access_control(auth(&ctx.accounts.question.authority, &ctx.accounts.authority.key))]
-    pub fn reveal_answer(ctx: Context<RevealQuestion>, revealed_variant_id: u32) -> ProgramResult {
+    #[access_control(access::admin(&ctx.accounts.question.authority, &ctx.accounts.authority))]
+    pub fn reveal_answer(ctx: Context<RevealAnswer>, revealed_variant_id: u32) -> ProgramResult {
         let game = &mut ctx.accounts.game;
         let question = &mut ctx.accounts.question;
 
@@ -248,49 +377,6 @@ mod trivia {
             game: game.key(),
             question: question.key()
         });
-
-        Ok(())
-    }
-
-    #[derive(Accounts)]
-    pub struct SubmitAnswer<'info> {
-        #[account(mut, constraint = question.game == game.key())]
-        game: Account<'info, Game>,
-        #[account(mut)]
-        question: Account<'info, Question>,
-        #[account(init, payer = user, space = 9999)]
-        answer: Account<'info, Answer>,
-        user: Signer<'info>,
-        system_program: Program<'info, System>,
-    }
-
-    pub fn submit_answer(ctx: Context<SubmitAnswer>, variant_id: u32) -> ProgramResult {
-        let game = &ctx.accounts.game;
-        let question = &mut ctx.accounts.question;
-        let answer = &mut ctx.accounts.answer;
-
-        require!(game.started, ErrorCode::GameNotStarted);
-        require!(
-            question.revealed_question.is_some(),
-            ErrorCode::QuestionIsNotRevealed
-        );
-        require!(
-            question.revealed_question.as_ref().unwrap().deadline > Clock::get()?.unix_timestamp,
-            ErrorCode::QuestionDeadlineExceeded
-        );
-
-        answer.question = question.key();
-        answer.variant_id = variant_id;
-        answer.user = ctx.accounts.user.key();
-
-        question
-            .revealed_question
-            .as_mut()
-            .unwrap()
-            .answers
-            .get_mut(variant_id as usize)
-            .ok_or(ErrorCode::VariantDoesNotExist)?
-            .push(answer.key());
 
         Ok(())
     }

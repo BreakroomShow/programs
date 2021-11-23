@@ -4,6 +4,12 @@ use anchor_lang::prelude::*;
 pub enum ErrorCode {
     #[msg("You do not have sufficient permissions to perform this action.")]
     Unauthorized,
+    #[msg("Player already whitelisted.")]
+    PlayerAlreadyWhitelisted,
+    #[msg("Player not whitelisted.")]
+    PlayerNotWhitelisted,
+    #[msg("Not enough invites left.")]
+    NotEnoughInvitesLeft,
     #[msg("Invalid game name.")]
     InvalidGameName,
     #[msg("Game already started.")]

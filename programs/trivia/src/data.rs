@@ -6,8 +6,19 @@ pub struct Trivia {
 }
 
 #[account]
+#[derive(Default)]
+pub struct Player {
+    pub trivia: Pubkey, // Trivia this Game belongs to
+    pub authority: Pubkey,
+    pub bump: u8,
+
+    pub finished_games_counter: u32,
+    pub left_invites_counter: u32,
+}
+
+#[account]
 pub struct Game {
-    pub trivia: Pubkey, // Trivia this game belongs to
+    pub trivia: Pubkey, // Trivia this Game belongs to
     pub authority: Pubkey,
 
     pub started: bool,
@@ -19,13 +30,12 @@ pub struct Game {
 #[account]
 #[derive(Default)]
 pub struct Question {
-    pub game: Pubkey, // Game this question belongs to
+    pub game: Pubkey, // Game this Question belongs to
     pub authority: Pubkey,
 
     pub question: [u8; 32],      // SHA256 hash of question == sha256(question)
     pub variants: Vec<[u8; 32]>, // SHA256 hashes of answers == sha256(sha256(question) + answer))
     pub time: i64,               // seconds
-
     pub revealed_question: Option<RevealedQuestion>,
 }
 
@@ -41,8 +51,8 @@ pub struct RevealedQuestion {
 
 #[account]
 pub struct Answer {
-    pub question: Pubkey, // Question this answer belongs to
-    pub user: Pubkey,
+    pub question: Pubkey, // Question this Answer belongs to
+    pub authority: Pubkey,
 
     // TODO: hide so other users can't see it until answering period ends
     pub variant_id: u32,
