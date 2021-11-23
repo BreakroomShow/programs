@@ -3,7 +3,7 @@ import * as assert from "assert"
 import {RevealAnswerEvent, RevealQuestionEvent, StartGameEvent} from "../types/event"
 import {Answer, Game, Question} from "../types/data"
 import {promiseWithTimeout} from "./utils"
-import {WHITELISTED_PLAYER} from "../types/seed"
+import {ANSWER, WHITELISTED_PLAYER} from "../types/seed"
 
 function sha256(...values: string[]) {
     const sha256 = require("js-sha256")
@@ -25,7 +25,6 @@ describe("trivia", () => {
     const gameKeypair = anchor.web3.Keypair.generate()
     const questionKeypair = anchor.web3.Keypair.generate()
     const dummyQuestionKeypair = anchor.web3.Keypair.generate()
-    const answerKeypair = anchor.web3.Keypair.generate()
 
     let questionDeadline: Date
 
@@ -301,7 +300,7 @@ describe("trivia", () => {
                     authority: provider.wallet.publicKey
                 }
             })
-        }), 2000)
+        }), 5000)
 
         assert.deepEqual(event.game, gameKeypair.publicKey)
 
@@ -334,7 +333,7 @@ describe("trivia", () => {
                     }
                 }
             )
-        }), 2000)
+        }), 5000)
 
         assert.deepEqual(event.game, gameKeypair.publicKey)
         assert.deepEqual(event.question, questionKeypair.publicKey)
@@ -353,34 +352,59 @@ describe("trivia", () => {
     })
 
     it("Submits an Answer for the revealed Question", async () => {
+        let [playerPDA, playerBump] = await anchor.web3.PublicKey.findProgramAddress(
+            [
+                Buffer.from(WHITELISTED_PLAYER),
+                triviaKeypair.publicKey.toBuffer(),
+                provider.wallet.publicKey.toBuffer()
+            ],
+            program.programId
+        )
+
+        let [answerPDA, answerBump] = await anchor.web3.PublicKey.findProgramAddress(
+            [
+                Buffer.from(ANSWER),
+                triviaKeypair.publicKey.toBuffer(),
+                gameKeypair.publicKey.toBuffer(),
+                questionKeypair.publicKey.toBuffer(),
+                playerPDA.toBuffer()
+            ],
+            program.programId
+        )
+
         await program.rpc.submitAnswer(
             1,
+            answerBump,
             {
                 accounts: {
-                    question: questionKeypair.publicKey,
+                    trivia: triviaKeypair.publicKey,
                     game: gameKeypair.publicKey,
-                    answer: answerKeypair.publicKey,
+                    question: questionKeypair.publicKey,
+                    answer: answerPDA,
+                    player: playerPDA,
                     authority: provider.wallet.publicKey,
                     systemProgram: anchor.web3.SystemProgram.programId
-                },
-                signers: [answerKeypair]
+                }
             }
         )
 
-        const answer: Answer = await program.account.answer.fetch(answerKeypair.publicKey)
+        const answer: Answer = await program.account.answer.fetch(answerPDA)
         assert.deepEqual(answer.question, questionKeypair.publicKey)
         assert.equal(answer.variantId, 1)
 
         const question: Question = await program.account.question.fetch(questionKeypair.publicKey)
         assert.deepEqual(
             question.revealedQuestion.answers,
-            [[], [answerKeypair.publicKey], []]
+            [[], [answerPDA], []]
         )
+
+        const player = await program.account.player.fetch(playerPDA)
+        assert.equal(player.finishedGamesCounter, 1)
     })
 
     it("Reveals an Answer for the finished Question", async () => {
         await new Promise(resolve =>
-            setTimeout(resolve, Math.ceil((questionDeadline.getTime() - new Date().getTime()) / 1000 + 1) * 1000))
+            setTimeout(resolve, Math.ceil((questionDeadline.getTime() - new Date().getTime()) / 1000 + 2) * 1000))
 
         const event: RevealAnswerEvent = await promiseWithTimeout(new Promise(async resolve => {
             const listener = program.addEventListener("RevealAnswerEvent", async event => {
@@ -398,7 +422,7 @@ describe("trivia", () => {
                     }
                 }
             )
-        }), 2000)
+        }), 5000)
 
         assert.deepEqual(event.game, gameKeypair.publicKey)
         assert.deepEqual(event.question, questionKeypair.publicKey)

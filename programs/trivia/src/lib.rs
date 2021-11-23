@@ -19,7 +19,7 @@ mod trivia {
 
     #[derive(Accounts)]
     pub struct InitializeTrivia<'info> {
-        #[account(init, payer = authority, space = 9999)]
+        #[account(init, payer = authority)]
         trivia: Account<'info, Trivia>,
         #[account(mut)]
         authority: Signer<'info>,
@@ -88,7 +88,11 @@ mod trivia {
         #[account(
             init,
             payer = authority,
-            seeds = [seed::WHITELISTED_PLAYER.as_ref(), trivia.key().as_ref(), player_key.as_ref()],
+            seeds = [
+                seed::WHITELISTED_PLAYER.as_ref(),
+                trivia.key().as_ref(),
+                player_key.as_ref()
+            ],
             bump = bump
         )]
         invited_player: Account<'info, Player>,
@@ -297,21 +301,39 @@ mod trivia {
     }
 
     #[derive(Accounts)]
+    #[instruction(variant_id: u32, bump: u8)]
     pub struct SubmitAnswer<'info> {
-        #[account(mut, constraint = question.game == game.key())]
+        #[account()]
+        trivia: Account<'info, Trivia>,
+        #[account(constraint = question.game == game.key(), has_one = trivia)]
         game: Account<'info, Game>,
         #[account(mut)]
         question: Account<'info, Question>,
-        #[account(init, payer = authority, space = 9999)]
+        #[account(
+            init,
+            payer = authority,
+            seeds = [
+                seed::ANSWER.as_ref(),
+                trivia.key().as_ref(),
+                game.key().as_ref(),
+                question.key().as_ref(),
+                player.key().as_ref()
+            ],
+            bump = bump
+        )]
         answer: Account<'info, Answer>,
+        #[account(mut, has_one = authority, has_one = trivia)]
+        player: Account<'info, Player>,
         authority: Signer<'info>,
         system_program: Program<'info, System>,
     }
 
-    pub fn submit_answer(ctx: Context<SubmitAnswer>, variant_id: u32) -> ProgramResult {
+    #[access_control(access::player(&ctx.accounts.trivia, &ctx.accounts.player, &ctx.accounts.authority))]
+    pub fn submit_answer(ctx: Context<SubmitAnswer>, variant_id: u32, bump: u8) -> ProgramResult {
         let game = &ctx.accounts.game;
         let question = &mut ctx.accounts.question;
         let answer = &mut ctx.accounts.answer;
+        let player = &mut ctx.accounts.player;
 
         require!(game.started, ErrorCode::GameNotStarted);
         require!(
@@ -324,8 +346,9 @@ mod trivia {
         );
 
         answer.question = question.key();
-        answer.variant_id = variant_id;
         answer.authority = ctx.accounts.authority.key();
+        answer.bump = bump;
+        answer.variant_id = variant_id;
 
         question
             .revealed_question
@@ -335,6 +358,16 @@ mod trivia {
             .get_mut(variant_id as usize)
             .ok_or(ErrorCode::VariantDoesNotExist)?
             .push(answer.key());
+
+        let question_id = game
+            .questions
+            .iter()
+            .position(|&q| q == question.key())
+            .ok_or(ErrorCode::QuestionDoesNotExist)?;
+
+        if question_id == game.questions.len() - 1 {
+            player.finished_games_counter += 1;
+        }
 
         Ok(())
     }

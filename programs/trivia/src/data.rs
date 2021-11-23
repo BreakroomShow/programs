@@ -1,6 +1,7 @@
 use anchor_lang::prelude::*;
 
 #[account]
+#[derive(Default)]
 pub struct Trivia {
     pub authority: Pubkey,
 }
@@ -50,9 +51,11 @@ pub struct RevealedQuestion {
 }
 
 #[account]
+#[derive(Default)]
 pub struct Answer {
     pub question: Pubkey, // Question this Answer belongs to
     pub authority: Pubkey,
+    pub bump: u8,
 
     // TODO: hide so other users can't see it until answering period ends
     pub variant_id: u32,
