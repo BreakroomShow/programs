@@ -24,7 +24,8 @@ mod trivia {
             init,
             payer = authority,
             seeds = [seed::TRIVIA.as_ref()],
-            bump = bump
+            bump = bump,
+            space = 9999
         )]
         trivia: Account<'info, Trivia>,
         #[account(mut)]
@@ -145,11 +146,14 @@ mod trivia {
 
     #[access_control(access::admin(&ctx.accounts.trivia.authority, &ctx.accounts.authority))]
     pub fn create_game(ctx: Context<CreateGame>, name: String) -> ProgramResult {
+        let trivia = &mut ctx.accounts.trivia;
         let game = &mut ctx.accounts.game;
 
         require!(!name.is_empty(), ErrorCode::InvalidGameName);
 
-        game.trivia = ctx.accounts.trivia.key();
+        trivia.games.push(game.key());
+
+        game.trivia = trivia.key();
         game.name = name;
         game.authority = ctx.accounts.authority.key();
 

@@ -5,6 +5,8 @@ use anchor_lang::prelude::*;
 pub struct Trivia {
     pub authority: Pubkey,
     pub bump: u8,
+
+    pub games: Vec<Pubkey>,
 }
 
 #[account]

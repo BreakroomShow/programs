@@ -2,6 +2,8 @@ import * as anchor from "@project-serum/anchor"
 
 export interface Trivia {
     authority: anchor.web3.PublicKey
+
+    games: anchor.web3.PublicKey[]
 }
 
 export interface Player {

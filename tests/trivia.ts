@@ -1,6 +1,6 @@
 import * as anchor from '@project-serum/anchor'
 import {RevealAnswerEvent, RevealQuestionEvent, StartGameEvent} from '../types/event'
-import {Answer, Game, Player, Question} from '../types/data'
+import {Answer, Game, Player, Question, Trivia} from '../types/data'
 import {promiseWithTimeout, sha256} from './utils'
 import {AnswerPDA, PlayerPDA, TriviaPDA} from '../types/seed'
 
@@ -47,6 +47,9 @@ describe('trivia', () => {
                 signers: [gameKeypair]
             }
         )
+
+        const trivia: Trivia = await program.account.trivia.fetch(triviaPDA)
+        expect(trivia.games).toStrictEqual([gameKeypair.publicKey])
 
         const game: Game = await program.account.game.fetch(gameKeypair.publicKey)
         expect(game.started).toBe(false)
