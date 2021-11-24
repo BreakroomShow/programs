@@ -1,6 +1,6 @@
 {
   "compilerOptions": {
-    "types": ["mocha", "chai", "node"],
+    "types": ["jest", "node"],
     "typeRoots": ["./node_modules/@types"],
     "lib": [
       "ESNext",
