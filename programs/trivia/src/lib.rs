@@ -13,6 +13,8 @@ mod seed;
 
 declare_id!("Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS");
 
+const INVITES_AFTER_FIRST_GAME: u32 = 3;
+
 #[program]
 mod trivia {
     use super::*;
@@ -151,7 +153,7 @@ mod trivia {
 
         require!(!name.is_empty(), ErrorCode::InvalidGameName);
 
-        trivia.games.push(game.key());
+        trivia.game_keys.push(game.key());
 
         game.trivia = trivia.key();
         game.name = name;
@@ -188,7 +190,7 @@ mod trivia {
         question.authority = ctx.accounts.authority.key();
         question.time = time;
 
-        game.questions.push(question.key());
+        game.question_keys.push(question.key());
 
         Ok(())
     }
@@ -217,7 +219,7 @@ mod trivia {
 
         ctx.accounts
             .game
-            .questions
+            .question_keys
             .insert(new_position as usize, question_key);
 
         Ok(())
@@ -264,7 +266,7 @@ mod trivia {
         require!(game.started, ErrorCode::GameNotStarted);
 
         let question_id = game
-            .questions
+            .question_keys
             .iter()
             .position(|&q| q == question.key())
             .ok_or(ErrorCode::QuestionDoesNotExist)?;
@@ -298,7 +300,7 @@ mod trivia {
             question: revealed_name,
             variants: revealed_variants,
             deadline: Clock::get()?.unix_timestamp + question.time,
-            answers: vec![vec![]; question.variants.len()],
+            answer_keys: vec![vec![]; question.variants.len()],
             ..Default::default()
         });
 
@@ -366,19 +368,23 @@ mod trivia {
             .revealed_question
             .as_mut()
             .unwrap()
-            .answers
+            .answer_keys
             .get_mut(variant_id as usize)
             .ok_or(ErrorCode::VariantDoesNotExist)?
             .push(answer.key());
 
         let question_id = game
-            .questions
+            .question_keys
             .iter()
             .position(|&q| q == question.key())
             .ok_or(ErrorCode::QuestionDoesNotExist)?;
 
-        if question_id == game.questions.len() - 1 {
+        if question_id == game.question_keys.len() - 1 {
             player.finished_games_counter += 1;
+
+            if player.finished_games_counter == 1 && player.left_invites_counter == 0 {
+                player.left_invites_counter = INVITES_AFTER_FIRST_GAME;
+            }
         }
 
         Ok(())
@@ -430,9 +436,10 @@ mod trivia {
 fn remove_question_from_game(game: &mut Account<Game>, question_key: Pubkey) -> ProgramResult {
     require!(!game.started, ErrorCode::GameAlreadyStarted);
 
-    let len_before = game.questions.len();
-    game.questions.retain(|question| question != &question_key);
-    let len_after = game.questions.len();
+    let len_before = game.question_keys.len();
+    game.question_keys
+        .retain(|question| question != &question_key);
+    let len_after = game.question_keys.len();
 
     require!(len_before != len_after, ErrorCode::QuestionDoesNotExist);
 

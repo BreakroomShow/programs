@@ -6,7 +6,7 @@ pub struct Trivia {
     pub authority: Pubkey,
     pub bump: u8,
 
-    pub games: Vec<Pubkey>,
+    pub game_keys: Vec<Pubkey>,
 }
 
 #[account]
@@ -27,7 +27,7 @@ pub struct Game {
 
     pub started: bool,
     pub name: String,
-    pub questions: Vec<Pubkey>,
+    pub question_keys: Vec<Pubkey>,
     pub revealed_questions_counter: u32,
 }
 
@@ -48,7 +48,7 @@ pub struct RevealedQuestion {
     pub question: String,
     pub variants: Vec<String>,
     pub deadline: i64, // unix timestamp in seconds
-    pub answers: Vec<Vec<Pubkey>>,
+    pub answer_keys: Vec<Vec<Pubkey>>,
 
     pub answer_variant_id: Option<u32>,
 }
