@@ -18,17 +18,25 @@ mod trivia {
     use super::*;
 
     #[derive(Accounts)]
+    #[instruction(bump: u8)]
     pub struct InitializeTrivia<'info> {
-        #[account(init, payer = authority)]
+        #[account(
+            init,
+            payer = authority,
+            seeds = [seed::TRIVIA.as_ref()],
+            bump = bump
+        )]
         trivia: Account<'info, Trivia>,
         #[account(mut)]
         authority: Signer<'info>,
         system_program: Program<'info, System>,
     }
 
-    pub fn initialize(ctx: Context<InitializeTrivia>) -> ProgramResult {
+    pub fn initialize(ctx: Context<InitializeTrivia>, bump: u8) -> ProgramResult {
         let trivia = &mut ctx.accounts.trivia;
+
         trivia.authority = ctx.accounts.authority.key();
+        trivia.bump = bump;
 
         Ok(())
     }

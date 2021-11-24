@@ -3,7 +3,7 @@ import * as assert from "assert"
 import {RevealAnswerEvent, RevealQuestionEvent, StartGameEvent} from "../types/event"
 import {Answer, Game, Player, Question} from "../types/data"
 import {promiseWithTimeout} from "./utils"
-import {ANSWER, WHITELISTED_PLAYER} from "../types/seed"
+import {AnswerPDA, PlayerPDA, TriviaPDA} from "../types/seed"
 
 function sha256(...values: string[]) {
     const sha256 = require("js-sha256")
@@ -21,7 +21,6 @@ describe("trivia", () => {
     anchor.setProvider(provider)
 
     const program = anchor.workspace.Trivia
-    const triviaKeypair = anchor.web3.Keypair.generate()
     const gameKeypair = anchor.web3.Keypair.generate()
     const questionKeypair = anchor.web3.Keypair.generate()
     const dummyQuestionKeypair = anchor.web3.Keypair.generate()
@@ -29,24 +28,30 @@ describe("trivia", () => {
     let questionDeadline: Date
 
     it("Initializes a Trivia", async () => {
-        await program.rpc.initialize({
-            accounts: {
-                trivia: triviaKeypair.publicKey,
-                authority: provider.wallet.publicKey,
-                systemProgram: anchor.web3.SystemProgram.programId
-            },
-            signers: [triviaKeypair]
-        })
+        let [triviaPDA, triviaBump] = await TriviaPDA(program)
 
-        await program.account.trivia.fetch(triviaKeypair.publicKey)
+        await program.rpc.initialize(
+            triviaBump,
+            {
+                accounts: {
+                    trivia: triviaPDA,
+                    authority: provider.wallet.publicKey,
+                    systemProgram: anchor.web3.SystemProgram.programId
+                }
+            }
+        )
+
+        await program.account.trivia.fetch(triviaPDA)
     })
 
     it("Creates a Game for the Trivia", async () => {
+        let [triviaPDA, triviaBump] = await TriviaPDA(program)
+
         await program.rpc.createGame(
             "Clever",
             {
                 accounts: {
-                    trivia: triviaKeypair.publicKey,
+                    trivia: triviaPDA,
                     game: gameKeypair.publicKey,
                     authority: provider.wallet.publicKey,
                     systemProgram: anchor.web3.SystemProgram.programId
@@ -143,13 +148,11 @@ describe("trivia", () => {
     })
 
     it("Whitelists the Player", async () => {
-        let [whitelistedPlayerPDA, whitelistedPlayerBump] = await anchor.web3.PublicKey.findProgramAddress(
-            [
-                Buffer.from(WHITELISTED_PLAYER),
-                triviaKeypair.publicKey.toBuffer(),
-                provider.wallet.publicKey.toBuffer()
-            ],
-            program.programId
+        let [triviaPDA, triviaBump] = await TriviaPDA(program)
+        let [whitelistedPlayerPDA, whitelistedPlayerBump] = await PlayerPDA(
+            program,
+            triviaPDA,
+            provider.wallet.publicKey
         )
 
         await program.rpc.whitelistPlayer(
@@ -157,7 +160,7 @@ describe("trivia", () => {
             whitelistedPlayerBump,
             {
                 accounts: {
-                    trivia: triviaKeypair.publicKey,
+                    trivia: triviaPDA,
                     whitelistedPlayer: whitelistedPlayerPDA,
                     authority: provider.wallet.publicKey,
                     systemProgram: anchor.web3.SystemProgram.programId
@@ -225,19 +228,13 @@ describe("trivia", () => {
     // })
 
     it("Adds an invite to the Player", async () => {
-        let [playerPDA, playerBump] = await anchor.web3.PublicKey.findProgramAddress(
-            [
-                Buffer.from(WHITELISTED_PLAYER),
-                triviaKeypair.publicKey.toBuffer(),
-                provider.wallet.publicKey.toBuffer()
-            ],
-            program.programId
-        )
+        let [triviaPDA, triviaBump] = await TriviaPDA(program)
+        let [playerPDA, playerBump] = await PlayerPDA(program, triviaPDA, provider.wallet.publicKey)
 
         await program.rpc.addPlayerInvite(
             {
                 accounts: {
-                    trivia: triviaKeypair.publicKey,
+                    trivia: triviaPDA,
                     player: playerPDA,
                     authority: provider.wallet.publicKey
                 }
@@ -249,24 +246,15 @@ describe("trivia", () => {
     })
 
     it("Invites the Player", async () => {
-        let [playerPDA, playerBump] = await anchor.web3.PublicKey.findProgramAddress(
-            [
-                Buffer.from(WHITELISTED_PLAYER),
-                triviaKeypair.publicKey.toBuffer(),
-                provider.wallet.publicKey.toBuffer()
-            ],
-            program.programId
-        )
+        let [triviaPDA, triviaBump] = await TriviaPDA(program)
+        let [playerPDA, playerBump] = await PlayerPDA(program, triviaPDA, provider.wallet.publicKey)
 
         const invitedPlayerKeypair = anchor.web3.Keypair.generate()
 
-        let [invitedPlayerPDA, invitedPlayerBump] = await anchor.web3.PublicKey.findProgramAddress(
-            [
-                Buffer.from(WHITELISTED_PLAYER),
-                triviaKeypair.publicKey.toBuffer(),
-                invitedPlayerKeypair.publicKey.toBuffer()
-            ],
-            program.programId
+        let [invitedPlayerPDA, invitedPlayerBump] = await PlayerPDA(
+            program,
+            triviaPDA,
+            invitedPlayerKeypair.publicKey
         )
 
         await program.rpc.invitePlayer(
@@ -274,7 +262,7 @@ describe("trivia", () => {
             invitedPlayerBump,
             {
                 accounts: {
-                    trivia: triviaKeypair.publicKey,
+                    trivia: triviaPDA,
                     invitedPlayer: invitedPlayerPDA,
                     player: playerPDA,
                     authority: provider.wallet.publicKey,
@@ -352,24 +340,14 @@ describe("trivia", () => {
     })
 
     it("Submits an Answer for the revealed Question", async () => {
-        let [playerPDA, playerBump] = await anchor.web3.PublicKey.findProgramAddress(
-            [
-                Buffer.from(WHITELISTED_PLAYER),
-                triviaKeypair.publicKey.toBuffer(),
-                provider.wallet.publicKey.toBuffer()
-            ],
-            program.programId
-        )
-
-        let [answerPDA, answerBump] = await anchor.web3.PublicKey.findProgramAddress(
-            [
-                Buffer.from(ANSWER),
-                triviaKeypair.publicKey.toBuffer(),
-                gameKeypair.publicKey.toBuffer(),
-                questionKeypair.publicKey.toBuffer(),
-                playerPDA.toBuffer()
-            ],
-            program.programId
+        let [triviaPDA, triviaBump] = await TriviaPDA(program)
+        let [playerPDA, playerBump] = await PlayerPDA(program, triviaPDA, provider.wallet.publicKey)
+        let [answerPDA, answerBump] = await AnswerPDA(
+            program,
+            triviaPDA,
+            gameKeypair.publicKey,
+            questionKeypair.publicKey,
+            playerPDA
         )
 
         await program.rpc.submitAnswer(
@@ -377,7 +355,7 @@ describe("trivia", () => {
             answerBump,
             {
                 accounts: {
-                    trivia: triviaKeypair.publicKey,
+                    trivia: triviaPDA,
                     game: gameKeypair.publicKey,
                     question: questionKeypair.publicKey,
                     answer: answerPDA,

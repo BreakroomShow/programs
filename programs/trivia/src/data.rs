@@ -4,6 +4,7 @@ use anchor_lang::prelude::*;
 #[derive(Default)]
 pub struct Trivia {
     pub authority: Pubkey,
+    pub bump: u8,
 }
 
 #[account]
