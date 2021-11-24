@@ -16,7 +16,7 @@ describe('trivia', () => {
     let questionDeadline: Date
 
     test('Initializes a Trivia', async () => {
-        let [triviaPDA, triviaBump] = await TriviaPDA(program)
+        const [triviaPDA, triviaBump] = await TriviaPDA(program)
 
         await program.rpc.initialize(
             triviaBump,
@@ -33,7 +33,7 @@ describe('trivia', () => {
     })
 
     test('Creates a Game for the Trivia', async () => {
-        let [triviaPDA] = await TriviaPDA(program)
+        const [triviaPDA] = await TriviaPDA(program)
 
         await program.rpc.createGame(
             'Clever',
@@ -136,8 +136,8 @@ describe('trivia', () => {
     })
 
     test('Whitelists the Player', async () => {
-        let [triviaPDA] = await TriviaPDA(program)
-        let [whitelistedPlayerPDA, whitelistedPlayerBump] = await PlayerPDA(
+        const [triviaPDA] = await TriviaPDA(program)
+        const [whitelistedPlayerPDA, whitelistedPlayerBump] = await PlayerPDA(
             program,
             triviaPDA,
             provider.wallet.publicKey
@@ -173,46 +173,36 @@ describe('trivia', () => {
         expect(game.questions).toStrictEqual([questionKeypair.publicKey])
     })
 
-    // TODO: fix throw assertion and error check
-    // test('Fails to invite the Player because no invites left', async () => {
-    //     let [playerPDA, playerBump] = await anchor.web3.PublicKey.findProgramAddress(
-    //         [
-    //             Buffer.from(WHITELISTED_PLAYER),
-    //             triviaKeypair.publicKey.toBuffer(),
-    //             provider.wallet.publicKey.toBuffer()
-    //         ],
-    //         program.programId
-    //     )
-    //
-    //     const invitedPlayerKeypair = anchor.web3.Keypair.generate()
-    //
-    //     let [invitedPlayerPDA, invitedPlayerBump] = await anchor.web3.PublicKey.findProgramAddress(
-    //         [
-    //             Buffer.from(WHITELISTED_PLAYER),
-    //             triviaKeypair.publicKey.toBuffer(),
-    //             invitedPlayerKeypair.publicKey.toBuffer()
-    //         ],
-    //         program.programId
-    //     )
-    //
-    //     await program.rpc.invitePlayer(
-    //         invitedPlayerKeypair.publicKey,
-    //         invitedPlayerBump,
-    //         {
-    //             accounts: {
-    //                 trivia: triviaKeypair.publicKey,
-    //                 invitedPlayer: invitedPlayerPDA,
-    //                 player: playerPDA,
-    //                 authority: provider.wallet.publicKey,
-    //                 systemProgram: anchor.web3.SystemProgram.programId
-    //             }
-    //         }
-    //     )
-    // })
+    test('Fails to invite the Player because no invites left', async () => {
+        const [triviaPDA] = await TriviaPDA(program)
+        const [playerPDA] = await PlayerPDA(program, triviaPDA, provider.wallet.publicKey)
+
+        const invitedPlayerKeypair = anchor.web3.Keypair.generate()
+
+        const [invitedPlayerPDA, invitedPlayerBump] = await PlayerPDA(program, triviaPDA, invitedPlayerKeypair.publicKey)
+
+        await expect(program.rpc.invitePlayer(
+            invitedPlayerKeypair.publicKey,
+            invitedPlayerBump,
+            {
+                accounts: {
+                    trivia: triviaPDA,
+                    invitedPlayer: invitedPlayerPDA,
+                    player: playerPDA,
+                    authority: provider.wallet.publicKey,
+                    systemProgram: anchor.web3.SystemProgram.programId
+                }
+            }
+        )).rejects.toThrow(new anchor.ProgramError(
+            303,
+            'Not enough invites left.',
+            '303: Not enough invites left.'
+        ))
+    })
 
     test('Adds an invite to the Player', async () => {
-        let [triviaPDA] = await TriviaPDA(program)
-        let [playerPDA] = await PlayerPDA(program, triviaPDA, provider.wallet.publicKey)
+        const [triviaPDA] = await TriviaPDA(program)
+        const [playerPDA] = await PlayerPDA(program, triviaPDA, provider.wallet.publicKey)
 
         await program.rpc.addPlayerInvite(
             {
@@ -229,12 +219,12 @@ describe('trivia', () => {
     })
 
     test('Invites the Player', async () => {
-        let [triviaPDA] = await TriviaPDA(program)
-        let [playerPDA] = await PlayerPDA(program, triviaPDA, provider.wallet.publicKey)
+        const [triviaPDA] = await TriviaPDA(program)
+        const [playerPDA] = await PlayerPDA(program, triviaPDA, provider.wallet.publicKey)
 
         const invitedPlayerKeypair = anchor.web3.Keypair.generate()
 
-        let [invitedPlayerPDA, invitedPlayerBump] = await PlayerPDA(
+        const [invitedPlayerPDA, invitedPlayerBump] = await PlayerPDA(
             program,
             triviaPDA,
             invitedPlayerKeypair.publicKey
@@ -323,9 +313,9 @@ describe('trivia', () => {
     })
 
     test('Submits an Answer for the revealed Question', async () => {
-        let [triviaPDA] = await TriviaPDA(program)
-        let [playerPDA] = await PlayerPDA(program, triviaPDA, provider.wallet.publicKey)
-        let [answerPDA, answerBump] = await AnswerPDA(
+        const [triviaPDA] = await TriviaPDA(program)
+        const [playerPDA] = await PlayerPDA(program, triviaPDA, provider.wallet.publicKey)
+        const [answerPDA, answerBump] = await AnswerPDA(
             program,
             triviaPDA,
             gameKeypair.publicKey,
