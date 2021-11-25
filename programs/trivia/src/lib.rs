@@ -27,7 +27,7 @@ mod trivia {
             payer = authority,
             seeds = [seed::TRIVIA.as_ref()],
             bump = bump,
-            space = 9999
+            space = 100
         )]
         trivia: Account<'info, Trivia>,
         #[account(mut)]
@@ -140,7 +140,7 @@ mod trivia {
     pub struct CreateGame<'info> {
         #[account(mut, has_one = authority)]
         trivia: Account<'info, Trivia>,
-        #[account(init, payer = authority, space = 9999)]
+        #[account(init, payer = authority, space = 100)]
         game: Account<'info, Game>,
         authority: Signer<'info>,
         system_program: Program<'info, System>,
@@ -166,7 +166,7 @@ mod trivia {
     pub struct AddQuestion<'info> {
         #[account(mut, has_one = authority)]
         game: Account<'info, Game>,
-        #[account(init, payer = authority, space = 9999)]
+        #[account(init, payer = authority, space = 100)]
         question: Account<'info, Question>,
         authority: Signer<'info>,
         system_program: Program<'info, System>,
