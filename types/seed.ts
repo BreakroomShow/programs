@@ -2,12 +2,24 @@ import * as anchor from "@project-serum/anchor"
 import {Program, web3} from "@project-serum/anchor"
 
 export const TRIVIA = "trivia"
+export const GAME = "game"
 export const WHITELISTED_PLAYER = "whitelisted_player"
 export const ANSWER = "answer"
 
 export async function TriviaPDA(program: Program): Promise<[web3.PublicKey, number]> {
     return await anchor.web3.PublicKey.findProgramAddress(
         [Buffer.from(TRIVIA)],
+        program.programId
+    )
+}
+
+export async function GamePDA(
+    program: Program,
+    trivia: web3.PublicKey,
+    gamesCounter: number
+): Promise<[web3.PublicKey, number]> {
+    return await anchor.web3.PublicKey.findProgramAddress(
+        [Buffer.from(GAME), trivia.toBuffer(), Buffer.from(gamesCounter.toString())],
         program.programId
     )
 }

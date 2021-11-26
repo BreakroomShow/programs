@@ -6,7 +6,7 @@ pub struct Trivia {
     pub authority: Pubkey,
     pub bump: u8,
 
-    pub game_keys: Vec<Pubkey>,
+    pub games_counter: u32,
 }
 
 #[account]
@@ -24,6 +24,7 @@ pub struct Player {
 pub struct Game {
     pub trivia: Pubkey, // Trivia this Game belongs to
     pub authority: Pubkey,
+    pub bump: u8,
 
     pub started: bool,
     pub name: String,

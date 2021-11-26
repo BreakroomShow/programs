@@ -137,27 +137,39 @@ mod trivia {
     }
 
     #[derive(Accounts)]
+    #[instruction(name: String, bump: u8)]
     pub struct CreateGame<'info> {
         #[account(mut, has_one = authority)]
         trivia: Account<'info, Trivia>,
-        #[account(init, payer = authority, space = 100)]
+        #[account(
+            init,
+            payer = authority,
+            seeds = [
+                seed::GAME.as_ref(),
+                trivia.key().as_ref(),
+                trivia.games_counter.to_string().as_ref()
+            ],
+            bump = bump,
+            space = 1000
+        )]
         game: Account<'info, Game>,
         authority: Signer<'info>,
         system_program: Program<'info, System>,
     }
 
     #[access_control(access::admin(&ctx.accounts.trivia.authority, &ctx.accounts.authority))]
-    pub fn create_game(ctx: Context<CreateGame>, name: String) -> ProgramResult {
+    pub fn create_game(ctx: Context<CreateGame>, name: String, bump: u8) -> ProgramResult {
         let trivia = &mut ctx.accounts.trivia;
         let game = &mut ctx.accounts.game;
 
         require!(!name.is_empty(), ErrorCode::InvalidGameName);
 
-        trivia.game_keys.push(game.key());
-
         game.trivia = trivia.key();
-        game.name = name;
         game.authority = ctx.accounts.authority.key();
+        game.bump = bump;
+        game.name = name;
+
+        trivia.games_counter += 1;
 
         Ok(())
     }
@@ -166,7 +178,7 @@ mod trivia {
     pub struct AddQuestion<'info> {
         #[account(mut, has_one = authority)]
         game: Account<'info, Game>,
-        #[account(init, payer = authority, space = 100)]
+        #[account(init, payer = authority, space = 1000)]
         question: Account<'info, Question>,
         authority: Signer<'info>,
         system_program: Program<'info, System>,

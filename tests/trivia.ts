@@ -2,21 +2,23 @@ import * as anchor from '@project-serum/anchor'
 import {RevealAnswerEvent, RevealQuestionEvent, StartGameEvent} from '../types/event'
 import {Answer, Game, Player, Question, RevealedQuestion, Trivia} from '../types/data'
 import {promiseWithTimeout, sha256} from './utils'
-import {AnswerPDA, PlayerPDA, TriviaPDA} from '../types/seed'
+import {AnswerPDA, GamePDA, PlayerPDA, TriviaPDA} from '../types/seed'
 
 describe('trivia', () => {
     const provider = anchor.Provider.local()
     anchor.setProvider(provider)
 
     const program = anchor.workspace.Trivia
-    const gameKeypair = anchor.web3.Keypair.generate()
+    let triviaPDA: anchor.web3.PublicKey
+    let gamePDA: anchor.web3.PublicKey
     const questionKeypair = anchor.web3.Keypair.generate()
     const dummyQuestionKeypair = anchor.web3.Keypair.generate()
 
     let questionDeadline: Date
 
     test('Initializes a Trivia', async () => {
-        const [triviaPDA, triviaBump] = await TriviaPDA(program)
+        let triviaBump: number
+        [triviaPDA, triviaBump] = await TriviaPDA(program)
 
         await program.rpc.initialize(
             triviaBump,
@@ -33,25 +35,30 @@ describe('trivia', () => {
     })
 
     test('Creates a Game for the Trivia', async () => {
-        const [triviaPDA] = await TriviaPDA(program)
+        let gameBump: number
+        [gamePDA, gameBump] = await GamePDA(
+            program,
+            triviaPDA,
+            (await program.account.trivia.fetch(triviaPDA)).gamesCounter
+        )
 
         await program.rpc.createGame(
             'Clever',
+            gameBump,
             {
                 accounts: {
                     trivia: triviaPDA,
-                    game: gameKeypair.publicKey,
+                    game: gamePDA,
                     authority: provider.wallet.publicKey,
                     systemProgram: anchor.web3.SystemProgram.programId
-                },
-                signers: [gameKeypair]
+                }
             }
         )
 
         const trivia: Trivia = await program.account.trivia.fetch(triviaPDA)
-        expect(trivia.gameKeys).toStrictEqual([gameKeypair.publicKey])
+        expect(trivia.gamesCounter).toBe(1)
 
-        const game: Game = await program.account.game.fetch(gameKeypair.publicKey)
+        const game: Game = await program.account.game.fetch(gamePDA)
         expect(game.started).toBe(false)
         expect(game.name).toBe('Clever')
         expect(game.questionKeys).toStrictEqual([])
@@ -73,7 +80,7 @@ describe('trivia', () => {
             new anchor.BN(time),
             {
                 accounts: {
-                    game: gameKeypair.publicKey,
+                    game: gamePDA,
                     question: questionKeypair.publicKey,
                     authority: provider.wallet.publicKey,
                     systemProgram: anchor.web3.SystemProgram.programId
@@ -87,7 +94,7 @@ describe('trivia', () => {
             new anchor.BN(time),
             {
                 accounts: {
-                    game: gameKeypair.publicKey,
+                    game: gamePDA,
                     question: dummyQuestionKeypair.publicKey,
                     authority: provider.wallet.publicKey,
                     systemProgram: anchor.web3.SystemProgram.programId
@@ -96,11 +103,11 @@ describe('trivia', () => {
             }
         )
 
-        const game: Game = await program.account.game.fetch(gameKeypair.publicKey)
+        const game: Game = await program.account.game.fetch(gamePDA)
         expect(game.questionKeys).toStrictEqual([questionKeypair.publicKey, dummyQuestionKeypair.publicKey])
 
         const question: Question = await program.account.question.fetch(questionKeypair.publicKey)
-        expect(question.game).toStrictEqual(gameKeypair.publicKey)
+        expect(question.game).toStrictEqual(gamePDA)
         expect(question.question).toStrictEqual(name)
         expect(question.variants).toStrictEqual(variants)
         expect(question.time).toStrictEqual(new anchor.BN(10))
@@ -113,13 +120,13 @@ describe('trivia', () => {
             0,
             {
                 accounts: {
-                    game: gameKeypair.publicKey,
+                    game: gamePDA,
                     authority: provider.wallet.publicKey
                 }
             }
         )
 
-        const game: Game = await program.account.game.fetch(gameKeypair.publicKey)
+        const game: Game = await program.account.game.fetch(gamePDA)
         expect(game.questionKeys).toStrictEqual([dummyQuestionKeypair.publicKey, questionKeypair.publicKey])
     })
 
@@ -128,18 +135,17 @@ describe('trivia', () => {
             dummyQuestionKeypair.publicKey,
             {
                 accounts: {
-                    game: gameKeypair.publicKey,
+                    game: gamePDA,
                     authority: provider.wallet.publicKey
                 }
             }
         )
 
-        const game: Game = await program.account.game.fetch(gameKeypair.publicKey)
+        const game: Game = await program.account.game.fetch(gamePDA)
         expect(game.questionKeys).toStrictEqual([questionKeypair.publicKey])
     })
 
     test('Whitelists the Player', async () => {
-        const [triviaPDA] = await TriviaPDA(program)
         const [whitelistedPlayerPDA, whitelistedPlayerBump] = await PlayerPDA(
             program,
             triviaPDA,
@@ -172,12 +178,11 @@ describe('trivia', () => {
             }
         )).rejects.toThrow(anchor.web3.SendTransactionError)
 
-        const game: Game = await program.account.game.fetch(gameKeypair.publicKey)
+        const game: Game = await program.account.game.fetch(gamePDA)
         expect(game.questionKeys).toStrictEqual([questionKeypair.publicKey])
     })
 
     test('Fails to invite the Player because no invites left', async () => {
-        const [triviaPDA] = await TriviaPDA(program)
         const [playerPDA] = await PlayerPDA(program, triviaPDA, provider.wallet.publicKey)
 
         const invitedPlayerKeypair = anchor.web3.Keypair.generate()
@@ -204,7 +209,6 @@ describe('trivia', () => {
     })
 
     test('Adds an invite to the Player', async () => {
-        const [triviaPDA] = await TriviaPDA(program)
         const [playerPDA] = await PlayerPDA(program, triviaPDA, provider.wallet.publicKey)
 
         await program.rpc.addPlayerInvite(
@@ -222,7 +226,6 @@ describe('trivia', () => {
     })
 
     test('Invites the Player', async () => {
-        const [triviaPDA] = await TriviaPDA(program)
         const [playerPDA] = await PlayerPDA(program, triviaPDA, provider.wallet.publicKey)
 
         const invitedPlayerKeypair = anchor.web3.Keypair.generate()
@@ -260,15 +263,15 @@ describe('trivia', () => {
 
             await program.rpc.startGame({
                 accounts: {
-                    game: gameKeypair.publicKey,
+                    game: gamePDA,
                     authority: provider.wallet.publicKey
                 }
             })
         }), 5000)
 
-        expect(event.game).toStrictEqual(gameKeypair.publicKey)
+        expect(event.game).toStrictEqual(gamePDA)
 
-        const game: Game = await program.account.game.fetch(gameKeypair.publicKey)
+        const game: Game = await program.account.game.fetch(gamePDA)
         expect(game.started).toBe(true)
     })
 
@@ -292,17 +295,17 @@ describe('trivia', () => {
                 {
                     accounts: {
                         question: questionKeypair.publicKey,
-                        game: gameKeypair.publicKey,
+                        game: gamePDA,
                         authority: provider.wallet.publicKey
                     }
                 }
             )
         }), 5000)
 
-        expect(event.game).toStrictEqual(gameKeypair.publicKey)
+        expect(event.game).toStrictEqual(gamePDA)
         expect(event.question).toStrictEqual(questionKeypair.publicKey)
 
-        const game: Game = await program.account.game.fetch(gameKeypair.publicKey)
+        const game: Game = await program.account.game.fetch(gamePDA)
         expect(game.revealedQuestionsCounter).toBe(1)
 
         const question: Question = await program.account.question.fetch(questionKeypair.publicKey)
@@ -316,12 +319,11 @@ describe('trivia', () => {
     })
 
     test('Submits an Answer for the revealed Question', async () => {
-        const [triviaPDA] = await TriviaPDA(program)
         const [playerPDA] = await PlayerPDA(program, triviaPDA, provider.wallet.publicKey)
         const [answerPDA, answerBump] = await AnswerPDA(
             program,
             triviaPDA,
-            gameKeypair.publicKey,
+            gamePDA,
             questionKeypair.publicKey,
             playerPDA
         )
@@ -332,7 +334,7 @@ describe('trivia', () => {
             {
                 accounts: {
                     trivia: triviaPDA,
-                    game: gameKeypair.publicKey,
+                    game: gamePDA,
                     question: questionKeypair.publicKey,
                     answer: answerPDA,
                     player: playerPDA,
@@ -369,14 +371,14 @@ describe('trivia', () => {
                 {
                     accounts: {
                         question: questionKeypair.publicKey,
-                        game: gameKeypair.publicKey,
+                        game: gamePDA,
                         authority: provider.wallet.publicKey
                     }
                 }
             )
         }), 5000)
 
-        expect(event.game).toStrictEqual(gameKeypair.publicKey)
+        expect(event.game).toStrictEqual(gamePDA)
         expect(event.question).toStrictEqual(questionKeypair.publicKey)
 
         const question: Question = await program.account.question.fetch(questionKeypair.publicKey)
@@ -384,13 +386,13 @@ describe('trivia', () => {
     })
 
     test('Returns all the data', async () => {
-        const [triviaPDA] = await TriviaPDA(program)
         const [playerPDA] = await PlayerPDA(program, triviaPDA, provider.wallet.publicKey)
 
         let trivia: Trivia = await program.account.trivia.fetch(triviaPDA)
         trivia = Object.assign(trivia, {
-            games: await Promise.all(trivia.gameKeys.map(async gameKey => {
-                const game: Game = await program.account.game.fetch(gameKey)
+            games: await Promise.all([...Array(trivia.gamesCounter).keys()].map(async gameId => {
+                const [gamePDA] = await GamePDA(program, triviaPDA, gameId)
+                const game: Game = await program.account.game.fetch(gamePDA)
 
                 return Object.assign(game, {
                     questions: await Promise.all(game.questionKeys.map(async questionKey => {
