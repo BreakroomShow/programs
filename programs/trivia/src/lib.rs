@@ -26,8 +26,7 @@ mod trivia {
             init,
             payer = authority,
             seeds = [seed::TRIVIA.as_ref()],
-            bump = bump,
-            space = 100
+            bump = bump
         )]
         trivia: Account<'info, Trivia>,
         #[account(mut)]
