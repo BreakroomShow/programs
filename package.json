@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "author": "Alexey Shekhirin <a.shekhirin@gmail.com>",
   "license": "MIT",
+  "scripts": {
+    "idl": "cp target/idl/trivia.json types/idl/"
+  },
   "dependencies": {
     "@project-serum/anchor": "^0.18.0"
   },
