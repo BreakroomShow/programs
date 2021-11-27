@@ -1,17 +1,27 @@
 {
-  "name": "clic-trivia",
-  "version": "1.0.0",
-  "author": "Alexey Shekhirin <a.shekhirin@gmail.com>",
-  "license": "MIT",
-  "scripts": {
-    "idl": "cp target/idl/trivia.json types/idl/"
-  },
-  "dependencies": {
-    "@project-serum/anchor": "^0.18.0"
-  },
-  "devDependencies": {
-    "@types/jest": "^27.0.3",
-    "jest": "^27.3.1",
-    "ts-jest": "^27.0.7"
-  }
+    "name": "clic-trivia",
+    "version": "1.0.0",
+    "author": "Alexey Shekhirin <a.shekhirin@gmail.com>",
+    "license": "MIT",
+    "scripts": {
+        "test": "jest",
+        "idl": "cp ./target/idl/trivia.json ./app/src/types/generated/ && cp ./target/types/trivia.ts ./app/src/types/generated"
+    },
+    "dependencies": {
+        "@project-serum/anchor": "0.18.2",
+        "@types/jest": "^27.0.3",
+        "jest": "^27.3.1",
+        "ts-jest": "^27.0.7"
+    },
+    "devDependencies": {
+        "import-sort-style-module": "6.0.0",
+        "prettier": "^2.5.0",
+        "prettier-plugin-import-sort": "0.0.7"
+    },
+    "importSort": {
+        ".js, .jsx, .ts, .tsx": {
+            "style": "module",
+            "parser": "typescript"
+        }
+    }
 }

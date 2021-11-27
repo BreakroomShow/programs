@@ -1,4 +1,4 @@
-import * as anchor from "@project-serum/anchor"
+import * as anchor from '@project-serum/anchor'
 
 export interface EditGameEvent {
     game: anchor.web3.PublicKey

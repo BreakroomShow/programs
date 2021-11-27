@@ -1,7 +1,7 @@
 /** @type {import('ts-jest/dist/types').InitialOptionsTsJest} */
 module.exports = {
-  preset: 'ts-jest',
-  testEnvironment: 'node',
-  testTimeout: 1000000,
-  testMatch: ['**/tests/**/*.[jt]s?(x)']
-};
+    preset: 'ts-jest',
+    testEnvironment: 'node',
+    testTimeout: 1000000,
+    testMatch: ['**/tests/**/*.[jt]s?(x)'],
+}

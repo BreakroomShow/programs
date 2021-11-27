@@ -1,4 +1,9 @@
-import * as anchor from "@project-serum/anchor"
+import * as anchor from '@project-serum/anchor'
+
+import { Optional } from './common'
+import { TriviaIdl } from './index'
+
+export type TriviaProgram = anchor.Program<TriviaIdl>
 
 export interface Trivia {
     authority: anchor.web3.PublicKey
@@ -25,10 +30,12 @@ export interface Game {
     revealedQuestionsCounter: number
 }
 
-export interface GameOptions {
-    name?: string
-    startTime?: anchor.BN
+export interface CreateGameOptions {
+    name: string
+    startTime: anchor.BN
 }
+
+export interface EditGameOptions extends Optional<CreateGameOptions> {}
 
 export interface Question {
     game: anchor.web3.PublicKey
