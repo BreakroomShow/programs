@@ -1,6 +1,6 @@
 import * as anchor from '@project-serum/anchor'
-import {RevealAnswerEvent, RevealQuestionEvent, StartGameEvent} from '../types/event'
-import {Answer, Game, Player, Question, RevealedQuestion, Trivia} from '../types/data'
+import {EditGameEvent, RevealAnswerEvent, RevealQuestionEvent} from '../types/event'
+import {Answer, Game, GameOptions, Player, Question, Trivia} from '../types/data'
 import {promiseWithTimeout, sha256} from './utils'
 import {AnswerPDA, GamePDA, PlayerPDA, TriviaPDA} from '../types/seed'
 
@@ -42,8 +42,13 @@ describe('trivia', () => {
             (await program.account.trivia.fetch(triviaPDA)).gamesCounter
         )
 
+        const options: GameOptions = {
+            name: 'Clever',
+            startTime: new anchor.BN(Math.floor(new Date().getTime() / 1000) + 60)
+        }
+
         await program.rpc.createGame(
-            'Clever',
+            options,
             gameBump,
             {
                 accounts: {
@@ -59,10 +64,40 @@ describe('trivia', () => {
         expect(trivia.gamesCounter).toBe(1)
 
         const game: Game = await program.account.game.fetch(gamePDA)
-        expect(game.started).toBe(false)
-        expect(game.name).toBe('Clever')
+        expect(game.name).toBe(options.name)
+        expect(game.startTime.toNumber()).toBe(options.startTime.toNumber())
         expect(game.questionKeys).toStrictEqual([])
         expect(game.revealedQuestionsCounter).toBe(0)
+    })
+
+    test('Edits the Game', async () => {
+        const options: GameOptions = {
+            name: 'CryptoClever',
+            startTime: new anchor.BN(Math.floor(new Date().getTime() / 1000) + 10 * 60)
+        }
+
+        const event: EditGameEvent = await promiseWithTimeout(new Promise(async resolve => {
+            const listener = program.addEventListener('EditGameEvent', async event => {
+                await program.removeEventListener(listener)
+                resolve(event)
+            })
+
+            await program.rpc.editGame(
+                options,
+                {
+                    accounts: {
+                        game: gamePDA,
+                        authority: provider.wallet.publicKey
+                    }
+                }
+            )
+        }), 5000)
+
+        expect(event.game).toStrictEqual(gamePDA)
+
+        const game: Game = await program.account.game.fetch(gamePDA)
+        expect(game.name).toBe(options.name)
+        expect(game.startTime.toNumber()).toBe(options.startTime.toNumber())
     })
 
     test('Adds a Question for the Game', async () => {
@@ -110,7 +145,7 @@ describe('trivia', () => {
         expect(question.game).toStrictEqual(gamePDA)
         expect(question.question).toStrictEqual(name)
         expect(question.variants).toStrictEqual(variants)
-        expect(question.time).toStrictEqual(new anchor.BN(10))
+        expect(question.time.toNumber()).toStrictEqual(10)
         expect(question.revealedQuestion).toBe(null)
     })
 
@@ -255,8 +290,8 @@ describe('trivia', () => {
     })
 
     test('Starts the Game', async () => {
-        const event: StartGameEvent = await promiseWithTimeout(new Promise(async resolve => {
-            const listener = program.addEventListener('StartGameEvent', async event => {
+        const event: EditGameEvent = await promiseWithTimeout(new Promise(async resolve => {
+            const listener = program.addEventListener('EditGameEvent', async event => {
                 await program.removeEventListener(listener)
                 resolve(event)
             })
@@ -272,7 +307,7 @@ describe('trivia', () => {
         expect(event.game).toStrictEqual(gamePDA)
 
         const game: Game = await program.account.game.fetch(gamePDA)
-        expect(game.started).toBe(true)
+        expect(game.startTime.toNumber()).toBeLessThan(new Date().getTime() / 1000)
     })
 
     test('Reveals a Question for the Game', async () => {

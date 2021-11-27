@@ -1,7 +1,7 @@
 use anchor_lang::prelude::*;
 
 #[event]
-pub struct StartGameEvent {
+pub struct EditGameEvent {
     pub game: Pubkey,
 }
 

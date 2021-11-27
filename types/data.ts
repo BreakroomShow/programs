@@ -18,11 +18,16 @@ export interface Game {
     trivia: anchor.web3.PublicKey
     authority: anchor.web3.PublicKey
 
-    started: boolean
     name: string
+    startTime: anchor.BN
     questionKeys: anchor.web3.PublicKey[]
     questions?: Question[]
     revealedQuestionsCounter: number
+}
+
+export interface GameOptions {
+    name?: string
+    startTime?: anchor.BN
 }
 
 export interface Question {

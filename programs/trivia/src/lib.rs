@@ -1,9 +1,9 @@
 use anchor_lang::prelude::{borsh::BorshSerialize, *};
 use anchor_lang::solana_program::hash::{extend_and_hash, hash, Hash};
 
-use crate::data::{Answer, Game, Player, Question, RevealedQuestion, Trivia};
+use crate::data::{Answer, Game, GameOptions, Player, Question, RevealedQuestion, Trivia};
 use crate::error::ErrorCode;
-use crate::event::{RevealAnswerEvent, RevealQuestionEvent, StartGameEvent};
+use crate::event::{EditGameEvent, RevealAnswerEvent, RevealQuestionEvent};
 
 mod access;
 mod data;
@@ -136,7 +136,7 @@ mod trivia {
     }
 
     #[derive(Accounts)]
-    #[instruction(name: String, bump: u8)]
+    #[instruction(options: GameOptions, bump: u8)]
     pub struct CreateGame<'info> {
         #[account(mut, has_one = authority)]
         trivia: Account<'info, Trivia>,
@@ -157,18 +157,75 @@ mod trivia {
     }
 
     #[access_control(access::admin(&ctx.accounts.trivia.authority, &ctx.accounts.authority))]
-    pub fn create_game(ctx: Context<CreateGame>, name: String, bump: u8) -> ProgramResult {
+    pub fn create_game(ctx: Context<CreateGame>, options: GameOptions, bump: u8) -> ProgramResult {
         let trivia = &mut ctx.accounts.trivia;
         let game = &mut ctx.accounts.game;
 
+        let name = options.name.ok_or(ErrorCode::InvalidGameName)?;
+        let start_time = options.start_time.ok_or(ErrorCode::InvalidGameStartTime)?;
+
         require!(!name.is_empty(), ErrorCode::InvalidGameName);
+        require!(
+            start_time > Clock::get()?.unix_timestamp as u64,
+            ErrorCode::InvalidGameStartTime
+        );
 
         game.trivia = trivia.key();
         game.authority = ctx.accounts.authority.key();
         game.bump = bump;
         game.name = name;
+        game.start_time = start_time;
 
         trivia.games_counter += 1;
+
+        Ok(())
+    }
+
+    #[derive(Accounts)]
+    pub struct EditGame<'info> {
+        #[account(mut, has_one = authority)]
+        game: Account<'info, Game>,
+        authority: Signer<'info>,
+    }
+
+    #[access_control(access::admin(&ctx.accounts.game.authority, &ctx.accounts.authority))]
+    pub fn edit_game(ctx: Context<EditGame>, options: GameOptions) -> ProgramResult {
+        let game = &mut ctx.accounts.game;
+
+        if let Some(name) = options.name {
+            require!(!name.is_empty(), ErrorCode::InvalidGameName);
+            game.name = name
+        }
+
+        if let Some(start_time) = options.start_time {
+            require!(
+                start_time > Clock::get()?.unix_timestamp as u64,
+                ErrorCode::InvalidGameStartTime
+            );
+            game.start_time = start_time;
+        }
+
+        emit!(EditGameEvent { game: game.key() });
+
+        Ok(())
+    }
+
+    #[derive(Accounts)]
+    pub struct StartGame<'info> {
+        #[account(mut, has_one = authority)]
+        game: Account<'info, Game>,
+        authority: Signer<'info>,
+    }
+
+    #[access_control(access::admin(&ctx.accounts.game.authority, &ctx.accounts.authority))]
+    pub fn start_game(ctx: Context<StartGame>) -> ProgramResult {
+        let game = &mut ctx.accounts.game;
+
+        require!(!game.started()?, ErrorCode::GameAlreadyStarted);
+
+        game.start_time = Clock::get()?.unix_timestamp as u64;
+
+        emit!(EditGameEvent { game: game.key() });
 
         Ok(())
     }
@@ -188,12 +245,12 @@ mod trivia {
         ctx: Context<AddQuestion>,
         name: [u8; 32],
         variants: Vec<[u8; 32]>,
-        time: i64,
+        time: u64,
     ) -> ProgramResult {
         let game = &mut ctx.accounts.game;
         let question = &mut ctx.accounts.question;
 
-        require!(!game.started, ErrorCode::GameAlreadyStarted);
+        require!(!game.started()?, ErrorCode::GameAlreadyStarted);
 
         question.game = game.key();
         question.question = name;
@@ -237,26 +294,6 @@ mod trivia {
     }
 
     #[derive(Accounts)]
-    pub struct StartGame<'info> {
-        #[account(mut, has_one = authority)]
-        game: Account<'info, Game>,
-        authority: Signer<'info>,
-    }
-
-    #[access_control(access::admin(&ctx.accounts.game.authority, &ctx.accounts.authority))]
-    pub fn start_game(ctx: Context<StartGame>) -> ProgramResult {
-        let game = &mut ctx.accounts.game;
-
-        require!(!game.started, ErrorCode::GameAlreadyStarted);
-
-        game.started = true;
-
-        emit!(StartGameEvent { game: game.key() });
-
-        Ok(())
-    }
-
-    #[derive(Accounts)]
     pub struct RevealQuestion<'info> {
         #[account(mut, constraint = question.game == game.key())]
         game: Account<'info, Game>,
@@ -274,7 +311,7 @@ mod trivia {
         let game = &mut ctx.accounts.game;
         let question = &mut ctx.accounts.question;
 
-        require!(game.started, ErrorCode::GameNotStarted);
+        require!(game.started()?, ErrorCode::GameNotStarted);
 
         let question_id = game
             .question_keys
@@ -310,7 +347,7 @@ mod trivia {
         question.revealed_question = Some(RevealedQuestion {
             question: revealed_name,
             variants: revealed_variants,
-            deadline: Clock::get()?.unix_timestamp + question.time,
+            deadline: Clock::get()?.unix_timestamp as u64 + question.time,
             answer_keys: vec![vec![]; question.variants.len()],
             ..Default::default()
         });
@@ -360,13 +397,14 @@ mod trivia {
         let answer = &mut ctx.accounts.answer;
         let player = &mut ctx.accounts.player;
 
-        require!(game.started, ErrorCode::GameNotStarted);
+        require!(game.started()?, ErrorCode::GameNotStarted);
         require!(
             question.revealed_question.is_some(),
             ErrorCode::QuestionIsNotRevealed
         );
         require!(
-            question.revealed_question.as_ref().unwrap().deadline > Clock::get()?.unix_timestamp,
+            question.revealed_question.as_ref().unwrap().deadline
+                > Clock::get()?.unix_timestamp as u64,
             ErrorCode::QuestionDeadlineExceeded
         );
 
@@ -415,13 +453,14 @@ mod trivia {
         let game = &mut ctx.accounts.game;
         let question = &mut ctx.accounts.question;
 
-        require!(game.started, ErrorCode::GameNotStarted);
+        require!(game.started()?, ErrorCode::GameNotStarted);
         require!(
             question.revealed_question.is_some(),
             ErrorCode::QuestionIsNotRevealed
         );
         require!(
-            question.revealed_question.as_ref().unwrap().deadline <= Clock::get()?.unix_timestamp,
+            question.revealed_question.as_ref().unwrap().deadline
+                <= Clock::get()?.unix_timestamp as u64,
             ErrorCode::QuestionDeadlineNotExceeded
         );
         require!(
@@ -445,7 +484,7 @@ mod trivia {
 }
 
 fn remove_question_from_game(game: &mut Account<Game>, question_key: Pubkey) -> ProgramResult {
-    require!(!game.started, ErrorCode::GameAlreadyStarted);
+    require!(!game.started()?, ErrorCode::GameAlreadyStarted);
 
     let len_before = game.question_keys.len();
     game.question_keys

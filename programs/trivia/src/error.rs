@@ -12,6 +12,8 @@ pub enum ErrorCode {
     NotEnoughInvitesLeft,
     #[msg("Invalid game name.")]
     InvalidGameName,
+    #[msg("Game start time must be in the future.")]
+    InvalidGameStartTime,
     #[msg("Game already started.")]
     GameAlreadyStarted,
     #[msg("Game not started.")]
