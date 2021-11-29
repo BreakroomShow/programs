@@ -1,87 +1,10 @@
 import '@solana/wallet-adapter-react-ui/styles.css'
 
-import * as anchor from '@project-serum/anchor'
 import { useWallet } from '@solana/wallet-adapter-react'
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui'
-import * as solana from '@solana/web3.js'
-import { useEffect, useMemo, useState } from 'react'
 
-import { PdaResult, TriviaPDA } from './api/seed'
-import { network, preflightCommitment, programID, triviaIdl } from './config'
-import { useGetLatest } from './hooks/useGetLatest'
-import { Trivia, TriviaIdl } from './types'
-
-function useProgram() {
-    const wallet = useWallet()
-
-    return useMemo(() => {
-        const connection = new solana.Connection(network, preflightCommitment)
-        const provider = new anchor.Provider(connection, wallet as unknown as anchor.Wallet, { preflightCommitment })
-        const program = new anchor.Program<TriviaIdl>(triviaIdl, programID, provider)
-
-        return [program, provider] as const
-    }, [wallet])
-}
-
-function usePda(init?: () => Promise<PdaResult | null> | null) {
-    const [[pda, bump], setPda] = useState<PdaResult | [null, null]>([null, null])
-
-    const getPda = useGetLatest(init || (() => null))
-
-    const set = useGetLatest(async (fnOrResult: PdaResult | null | typeof init) => {
-        if (typeof fnOrResult === 'function') {
-            try {
-                const res = await fnOrResult()
-                await set(res)
-            } catch {
-                setPda([null, null])
-            }
-            return
-        }
-
-        setPda(fnOrResult || [null, null])
-    })
-
-    useEffect(() => {
-        set(getPda)
-    }, [getPda, set])
-
-    return [pda, bump, set] as const
-}
-
-function useTriviaPDA() {
-    const [triviaPDA] = usePda(() => TriviaPDA(programID))
-    return triviaPDA
-}
-
-// function usePlayerPDA() {
-//     const [playerPDA, , setPlayerPDA] = usePda()
-//     const triviaPDA = useTriviaPDA()
-//     const [program, provider] = useProgram()
-//
-//     useEffect(() => {
-//         if (!triviaPDA) return
-//         if (!provider.wallet.publicKey) return
-//
-//         setPlayerPDA(() => PlayerPDA(programID, triviaPDA, provider.wallet.publicKey))
-//     }, [program.account.trivia, provider.wallet.publicKey, setPlayerPDA, triviaPDA])
-//
-//     return playerPDA
-// }
-
-function useTrivia() {
-    const [trivia, setTrivia] = useState<null | Trivia>(null)
-    const triviaPda = useTriviaPDA()
-    const [program] = useProgram()
-
-    useEffect(() => {
-        if (triviaPda) {
-            program.account.trivia.fetch(triviaPda).then(setTrivia)
-        }
-    }, [program.account.trivia, triviaPda])
-
-    return trivia
-}
+import { useCreateGame } from './api/mutations'
+import { useGameQuery, useTriviaQuery } from './api/query'
 
 function ConnectedApp() {
     const wallet = useWallet()
@@ -105,21 +28,55 @@ function DisconnectedApp() {
     )
 }
 
+function Connection() {
+    const wallet = useWallet()
+    if (wallet.connected) return <ConnectedApp />
+    if (wallet.connecting) return null
+    return <DisconnectedApp />
+}
+
+function renderObject(object: object | null = null) {
+    return <div style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>{JSON.stringify(object, null, 4)}</div>
+}
+
 export function App() {
     const wallet = useWallet()
-    const trivia = useTrivia()
 
-    const connection = (() => {
-        if (wallet.connected) return <ConnectedApp />
-        if (wallet.connecting) return null
-        return <DisconnectedApp />
-    })()
+    const { data: trivia, status: triviaStatus } = useTriviaQuery()
+
+    const gameIds = Array.from(Array(trivia?.gamesCounter).keys())
+    const lastGameId = gameIds[gameIds.length - 1]
+
+    const { data: lastGame, status: lastGameStatus } = useGameQuery(lastGameId)
+
+    const createGameMutation = useCreateGame(trivia?.gamesCounter || 0)
+
+    function createGame() {
+        createGameMutation.mutate({
+            name: 'brand new game',
+            startTime: Math.floor(new Date().getTime() / 1000) + 60,
+        })
+    }
 
     return (
         <div>
-            <div>{connection}</div>
+            <Connection />
             <br />
-            <div style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>{JSON.stringify(trivia, null, 4)}</div>
+            <div>all game ids: {gameIds.length ? gameIds.join(', ') : 'no games'}</div>
+            <br />
+            <div>
+                lastGame: {lastGameStatus} {renderObject(lastGame)}
+            </div>
+            <br />
+            <div>
+                trivia: {triviaStatus} {renderObject(trivia)}
+            </div>
+            <br />
+            {wallet.connected ? (
+                <div>
+                    <button onClick={createGame}>create game</button>
+                </div>
+            ) : null}
         </div>
     )
 }

@@ -23,10 +23,10 @@ export function TriviaPDA(programId: TriviaProgram['programId']): Promise<PdaRes
 export function GamePDA(
     programId: TriviaProgram['programId'],
     trivia: PublicKey,
-    gamesCounter: number,
+    gameIndex: number,
 ): Promise<PdaResult> {
     return anchor.web3.PublicKey.findProgramAddress(
-        [Buffer.from(GAME), trivia.toBuffer(), Buffer.from(gamesCounter.toString())],
+        [Buffer.from(GAME), trivia.toBuffer(), Buffer.from(gameIndex.toString())],
         programId,
     )
 }
