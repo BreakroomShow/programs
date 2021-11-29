@@ -1,7 +1,7 @@
 import * as anchor from '@project-serum/anchor'
-import { PublicKey } from '@solana/web3.js'
+import {PublicKey} from '@solana/web3.js'
 
-import { TriviaProgram } from './data'
+import {TriviaProgram} from './data'
 
 const TRIVIA = 'trivia'
 const GAME = 'game'

@@ -1,5 +1,5 @@
 import * as anchor from '@project-serum/anchor'
-import { sha256 as jssha256 } from 'js-sha256'
+import {sha256 as jssha256} from 'js-sha256'
 
 export function sha256(...values: string[]) {
     const encoder = new TextEncoder()

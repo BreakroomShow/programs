@@ -1,16 +1,19 @@
 import * as anchor from '@project-serum/anchor'
 
-import { AnswerPDA, GamePDA, PlayerPDA, TriviaPDA } from '../types/seed'
 import {
+    AnswerPDA,
     CreateGameOptions,
     EditGameEvent,
     EditGameOptions,
+    GamePDA,
+    PlayerPDA,
     Question,
     RevealAnswerEvent,
     RevealQuestionEvent,
-    TriviaProgram,
+    TriviaPDA,
+    TriviaProgram
 } from '../types'
-import { promiseWithTimeout, sha256 } from './utils'
+import {promiseWithTimeout, sha256} from './utils'
 
 describe('trivia', () => {
     const provider = anchor.Provider.local()
