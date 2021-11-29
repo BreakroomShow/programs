@@ -1,55 +1,50 @@
-import * as anchor from "@project-serum/anchor"
-import {Program, web3} from "@project-serum/anchor"
+import * as anchor from '@project-serum/anchor'
+import { PublicKey } from '@solana/web3.js'
 
-export const TRIVIA = "trivia"
-export const GAME = "game"
-export const WHITELISTED_PLAYER = "whitelisted_player"
-export const ANSWER = "answer"
+import { TriviaProgram } from './data'
 
-export async function TriviaPDA(program: Program): Promise<[web3.PublicKey, number]> {
-    return await anchor.web3.PublicKey.findProgramAddress(
-        [Buffer.from(TRIVIA)],
-        program.programId
+const TRIVIA = 'trivia'
+const GAME = 'game'
+const WHITELISTED_PLAYER = 'whitelisted_player'
+const ANSWER = 'answer'
+
+export type PdaResult = [PublicKey, number]
+
+export function TriviaPDA(programId: TriviaProgram['programId']): Promise<PdaResult> {
+    return anchor.web3.PublicKey.findProgramAddress([Buffer.from(TRIVIA)], programId)
+}
+
+export function GamePDA(
+    programId: TriviaProgram['programId'],
+    trivia: PublicKey,
+    gameIndex: number,
+): Promise<PdaResult> {
+    return anchor.web3.PublicKey.findProgramAddress(
+        [Buffer.from(GAME), trivia.toBuffer(), Buffer.from(gameIndex.toString())],
+        programId,
     )
 }
 
-export async function GamePDA(
-    program: Program,
-    trivia: web3.PublicKey,
-    gamesCounter: number
-): Promise<[web3.PublicKey, number]> {
-    return await anchor.web3.PublicKey.findProgramAddress(
-        [Buffer.from(GAME), trivia.toBuffer(), Buffer.from(gamesCounter.toString())],
-        program.programId
-    )
-}
-
-export async function PlayerPDA(
-    program: Program,
-    trivia: web3.PublicKey,
-    user: web3.PublicKey
-): Promise<[web3.PublicKey, number]> {
-    return await anchor.web3.PublicKey.findProgramAddress(
+export function PlayerPDA(
+    programId: TriviaProgram['programId'],
+    trivia: PublicKey,
+    user: PublicKey,
+): Promise<PdaResult> {
+    return anchor.web3.PublicKey.findProgramAddress(
         [Buffer.from(WHITELISTED_PLAYER), trivia.toBuffer(), user.toBuffer()],
-        program.programId
+        programId,
     )
 }
 
-export async function AnswerPDA(
-    program: Program,
-    trivia: web3.PublicKey,
-    game: web3.PublicKey,
-    question: web3.PublicKey,
-    player: web3.PublicKey
-): Promise<[web3.PublicKey, number]> {
-    return await anchor.web3.PublicKey.findProgramAddress(
-        [
-            Buffer.from(ANSWER),
-            trivia.toBuffer(),
-            game.toBuffer(),
-            question.toBuffer(),
-            player.toBuffer()
-        ],
-        program.programId
+export function AnswerPDA(
+    programId: TriviaProgram['programId'],
+    trivia: PublicKey,
+    game: PublicKey,
+    question: PublicKey,
+    player: PublicKey,
+): Promise<PdaResult> {
+    return anchor.web3.PublicKey.findProgramAddress(
+        [Buffer.from(ANSWER), trivia.toBuffer(), game.toBuffer(), question.toBuffer(), player.toBuffer()],
+        programId,
     )
 }
