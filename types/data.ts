@@ -1,7 +1,7 @@
 import * as anchor from '@project-serum/anchor'
 
-import { Optional } from './common'
 import { TriviaIdl } from './index'
+import {Optional} from "./common"
 
 export type TriviaProgram = anchor.Program<TriviaIdl>
 

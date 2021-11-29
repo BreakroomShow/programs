@@ -9,4 +9,4 @@ trivia = "F6JZ61gqo32Mwv4XBwGsVmamsaZCgyVoz8VUvefsqUhm"
 trivia = "F6JZ61gqo32Mwv4XBwGsVmamsaZCgyVoz8VUvefsqUhm"
 
 [scripts]
-test = "npm run test"
+test = "yarn test"

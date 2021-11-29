@@ -1,6 +1,6 @@
 import * as anchor from '@project-serum/anchor';
-import { Optional } from './common';
 import { TriviaIdl } from './index';
+import { Optional } from "./common";
 export declare type TriviaProgram = anchor.Program<TriviaIdl>;
 export interface Trivia {
     authority: anchor.web3.PublicKey;
