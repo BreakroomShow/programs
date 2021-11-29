@@ -8,7 +8,6 @@ export function sha256(...values: string[]) {
 }
 
 describe('sha256', () => {
-    // prettier-ignore
     it('Returns correct hash for multiple values', () => {
         const decode = (hash) => [...anchor.utils.bytes.hex.decode(hash)]
 

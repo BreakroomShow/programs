@@ -1,13 +1,7 @@
-import * as _anchor from '@project-serum/anchor'
+import * as anchor from '@project-serum/anchor'
 import { PublicKey } from '@solana/web3.js'
 
-import { TriviaProgram } from '../types'
-
-let anchor = _anchor
-
-export function setupTests(providedAnchor: typeof anchor) {
-    anchor = providedAnchor
-}
+import { TriviaProgram } from './data'
 
 const TRIVIA = 'trivia'
 const GAME = 'game'

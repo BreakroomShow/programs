@@ -5,6 +5,10 @@
         "lib": ["ESNext", "dom"],
         "module": "commonjs",
         "target": "ESNext",
-        "esModuleInterop": true
-    }
+        "esModuleInterop": true,
+        "resolveJsonModule": true,
+        "outDir": "./dist",
+        "declaration": true
+    },
+    "include": ["./types"]
 }
