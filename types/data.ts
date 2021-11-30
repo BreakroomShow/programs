@@ -11,12 +11,20 @@ export interface Trivia {
     gamesCounter: number
 }
 
-export interface Player {
+export interface User {
     trivia: anchor.web3.PublicKey
     authority: anchor.web3.PublicKey
 
     finishedGamesCounter: number
     leftInvitesCounter: number
+}
+
+export interface Player {
+    game: anchor.web3.PublicKey
+    user: anchor.web3.PublicKey
+    authority: anchor.web3.PublicKey
+
+    answers: number[]
 }
 
 export interface Game {

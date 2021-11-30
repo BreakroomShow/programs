@@ -1,4 +1,5 @@
 pub const TRIVIA: &str = "trivia";
 pub const GAME: &str = "game";
-pub const WHITELISTED_PLAYER: &str = "whitelisted_player";
+pub const USER: &str = "user";
+pub const PLAYER: &str = "player";
 pub const ANSWER: &str = "answer";

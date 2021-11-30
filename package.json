@@ -6,9 +6,8 @@
   "main": "./dist/index.js",
   "scripts": {
     "prepare": "husky install",
-    "build": "tsc",
-    "test": "jest",
-    "idl": "cp ./target/idl/trivia.json types/generated/ && cp ./target/types/trivia.ts types/generated"
+    "build": "anchor build --idl-ts $INIT_CWD/types/generated --idl $INIT_CWD/types/generated && tsc",
+    "test": "jest"
   },
   "dependencies": {
     "@project-serum/anchor": "0.18.2"

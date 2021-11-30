@@ -1,7 +1,7 @@
 use anchor_lang::prelude::{borsh::BorshSerialize, *};
 use anchor_lang::solana_program::hash::{extend_and_hash, hash, Hash};
 
-use crate::data::{Answer, Game, GameOptions, Player, Question, RevealedQuestion, Trivia};
+use crate::data::{Answer, Game, GameOptions, Question, RevealedQuestion, Trivia, User};
 use crate::error::ErrorCode;
 use crate::event::{EditGameEvent, RevealAnswerEvent, RevealQuestionEvent};
 
@@ -17,6 +17,8 @@ const INVITES_AFTER_FIRST_GAME: u32 = 3;
 
 #[program]
 mod trivia {
+    use crate::data::Player;
+
     use super::*;
 
     #[derive(Accounts)]
@@ -44,93 +46,88 @@ mod trivia {
     }
 
     #[derive(Accounts)]
-    #[instruction(player_key: Pubkey, bump: u8)]
-    pub struct WhitelistPlayer<'info> {
-        #[account(has_one = authority)]
+    #[instruction(user_key: Pubkey, bump: u8)]
+    pub struct WhitelistUser<'info> {
+        #[account(has_one = authority @ ErrorCode::Unauthorized)]
         trivia: Account<'info, Trivia>,
         #[account(
             init,
             payer = authority,
-            seeds = [seed::WHITELISTED_PLAYER.as_ref(), trivia.key().as_ref(), player_key.as_ref()],
+            seeds = [seed::USER.as_ref(), trivia.key().as_ref(), user_key.as_ref()],
             bump = bump
         )]
-        whitelisted_player: Account<'info, Player>,
+        whitelisted_user: Account<'info, User>,
         authority: Signer<'info>,
         system_program: Program<'info, System>,
     }
 
-    #[access_control(access::admin(&ctx.accounts.trivia.authority, &ctx.accounts.authority))]
-    pub fn whitelist_player(
-        ctx: Context<WhitelistPlayer>,
-        player_key: Pubkey,
+    pub fn whitelist_user(
+        ctx: Context<WhitelistUser>,
+        user_key: Pubkey,
         bump: u8,
     ) -> ProgramResult {
-        let player = &mut ctx.accounts.whitelisted_player;
+        let user = &mut ctx.accounts.whitelisted_user;
 
-        player.trivia = ctx.accounts.trivia.key();
-        player.authority = player_key;
-        player.bump = bump;
+        user.trivia = ctx.accounts.trivia.key();
+        user.authority = user_key;
+        user.bump = bump;
 
         Ok(())
     }
 
     #[derive(Accounts)]
-    pub struct AddPlayerInvite<'info> {
+    pub struct AddUserInvite<'info> {
         #[account(has_one = authority)]
         trivia: Account<'info, Trivia>,
         #[account(mut, has_one = trivia)]
-        player: Account<'info, Player>,
+        user: Account<'info, User>,
         authority: Signer<'info>,
     }
 
     #[access_control(access::admin(&ctx.accounts.trivia.authority, &ctx.accounts.authority))]
-    pub fn add_player_invite(ctx: Context<AddPlayerInvite>) -> ProgramResult {
-        ctx.accounts.player.left_invites_counter += 1;
+    pub fn add_user_invite(ctx: Context<AddUserInvite>) -> ProgramResult {
+        ctx.accounts.user.left_invites_counter += 1;
 
         Ok(())
     }
 
     #[derive(Accounts)]
-    #[instruction(player_key: Pubkey, bump: u8)]
-    pub struct InvitePlayer<'info> {
+    #[instruction(user_key: Pubkey, bump: u8)]
+    pub struct InviteUser<'info> {
         #[account()]
         trivia: Account<'info, Trivia>,
         #[account(
             init,
             payer = authority,
             seeds = [
-                seed::WHITELISTED_PLAYER.as_ref(),
+                seed::USER.as_ref(),
                 trivia.key().as_ref(),
-                player_key.as_ref()
+                user_key.as_ref()
             ],
             bump = bump
         )]
-        invited_player: Account<'info, Player>,
+        invited_user: Account<'info, User>,
         #[account(mut, has_one = authority, has_one = trivia)]
-        player: Account<'info, Player>,
+        user: Account<'info, User>,
         authority: Signer<'info>,
         system_program: Program<'info, System>,
     }
 
-    #[access_control(access::player(&ctx.accounts.trivia, &ctx.accounts.player, &ctx.accounts.authority))]
-    pub fn invite_player(
-        ctx: Context<InvitePlayer>,
-        player_key: Pubkey,
-        bump: u8,
-    ) -> ProgramResult {
-        let player = &mut ctx.accounts.player;
-        let invited_player = &mut ctx.accounts.invited_player;
+    #[access_control(access::user(&ctx.accounts.trivia, &ctx.accounts.user))]
+    pub fn invite_user(ctx: Context<InviteUser>, user_key: Pubkey, bump: u8) -> ProgramResult {
+        let user = &mut ctx.accounts.user;
+        let invited_user = &mut ctx.accounts.invited_user;
 
         require!(
-            player.left_invites_counter > 0,
+            user.left_invites_counter > 0,
             ErrorCode::NotEnoughInvitesLeft
         );
 
-        invited_player.trivia = ctx.accounts.trivia.key();
-        invited_player.authority = player_key;
-        invited_player.bump = bump;
+        invited_user.trivia = ctx.accounts.trivia.key();
+        invited_user.authority = user_key;
+        invited_user.bump = bump;
 
-        player.left_invites_counter -= 1;
+        user.left_invites_counter -= 1;
 
         Ok(())
     }
@@ -363,39 +360,56 @@ mod trivia {
     }
 
     #[derive(Accounts)]
-    #[instruction(variant_id: u32, bump: u8)]
+    #[instruction(variant_id: u32, player_bump: u8, answer_bump: u8)]
     pub struct SubmitAnswer<'info> {
         #[account()]
         trivia: Account<'info, Trivia>,
-        #[account(constraint = question.game == game.key(), has_one = trivia)]
+        #[account(has_one = trivia)]
         game: Account<'info, Game>,
-        #[account(mut)]
+        #[account(mut, has_one = authority, has_one = trivia)]
+        user: Account<'info, User>,
+        #[account(
+            init_if_needed,
+            payer = authority,
+            seeds = [
+                seed::PLAYER.as_ref(),
+                game.key().as_ref(),
+                user.key().as_ref()
+            ],
+            bump = player_bump,
+            space = 1000
+        )]
+        player: Account<'info, Player>,
+        #[account(mut, has_one = game)]
         question: Account<'info, Question>,
         #[account(
             init,
             payer = authority,
             seeds = [
                 seed::ANSWER.as_ref(),
-                trivia.key().as_ref(),
-                game.key().as_ref(),
                 question.key().as_ref(),
                 player.key().as_ref()
             ],
-            bump = bump
+            bump = answer_bump
         )]
         answer: Account<'info, Answer>,
-        #[account(mut, has_one = authority, has_one = trivia)]
-        player: Account<'info, Player>,
         authority: Signer<'info>,
         system_program: Program<'info, System>,
     }
 
-    #[access_control(access::player(&ctx.accounts.trivia, &ctx.accounts.player, &ctx.accounts.authority))]
-    pub fn submit_answer(ctx: Context<SubmitAnswer>, variant_id: u32, bump: u8) -> ProgramResult {
+    #[access_control(access::user(&ctx.accounts.trivia, &ctx.accounts.user))]
+    pub fn submit_answer(
+        ctx: Context<SubmitAnswer>,
+        variant_id: u32,
+        player_bump: u8,
+        answer_bump: u8,
+    ) -> ProgramResult {
         let game = &ctx.accounts.game;
         let question = &mut ctx.accounts.question;
         let answer = &mut ctx.accounts.answer;
+        let user = &mut ctx.accounts.user;
         let player = &mut ctx.accounts.player;
+        let authority = &ctx.accounts.authority;
 
         require!(game.started()?, ErrorCode::GameNotStarted);
         require!(
@@ -408,9 +422,39 @@ mod trivia {
             ErrorCode::QuestionDeadlineExceeded
         );
 
+        let question_id = game
+            .question_keys
+            .iter()
+            .position(|&q| q == question.key())
+            .ok_or(ErrorCode::QuestionDoesNotExist)?;
+
+        require!(
+            player.answers.len() == question_id,
+            ErrorCode::PreviousQuestionWasNotAnswered
+        );
+
+        player.answers.push(variant_id);
+
+        if player.authority.to_bytes() == [0; 32] {
+            require!(question_id == 0, ErrorCode::GameAlreadyStarted);
+
+            player.game = game.key();
+            player.user = user.key();
+            player.authority = authority.key();
+            player.bump = player_bump;
+        }
+
+        if question_id == game.question_keys.len() - 1 {
+            user.finished_games_counter += 1;
+
+            if user.finished_games_counter == 1 && user.left_invites_counter == 0 {
+                user.left_invites_counter = INVITES_AFTER_FIRST_GAME;
+            }
+        }
+
         answer.question = question.key();
-        answer.authority = ctx.accounts.authority.key();
-        answer.bump = bump;
+        answer.authority = authority.key();
+        answer.bump = answer_bump;
         answer.variant_id = variant_id;
 
         question
@@ -421,20 +465,6 @@ mod trivia {
             .get_mut(variant_id as usize)
             .ok_or(ErrorCode::VariantDoesNotExist)?
             .push(answer.key());
-
-        let question_id = game
-            .question_keys
-            .iter()
-            .position(|&q| q == question.key())
-            .ok_or(ErrorCode::QuestionDoesNotExist)?;
-
-        if question_id == game.question_keys.len() - 1 {
-            player.finished_games_counter += 1;
-
-            if player.finished_games_counter == 1 && player.left_invites_counter == 0 {
-                player.left_invites_counter = INVITES_AFTER_FIRST_GAME;
-            }
-        }
 
         Ok(())
     }

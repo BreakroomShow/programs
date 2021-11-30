@@ -4,9 +4,9 @@ use anchor_lang::prelude::*;
 pub enum ErrorCode {
     #[msg("You do not have sufficient permissions to perform this action.")]
     Unauthorized,
-    #[msg("Player already whitelisted.")]
+    #[msg("User already whitelisted.")]
     PlayerAlreadyWhitelisted,
-    #[msg("Player not whitelisted.")]
+    #[msg("User not whitelisted.")]
     PlayerNotWhitelisted,
     #[msg("Not enough invites left.")]
     NotEnoughInvitesLeft,
@@ -26,6 +26,8 @@ pub enum ErrorCode {
     QuestionRevealedAhead,
     #[msg("Question does not exist.")]
     QuestionDoesNotExist,
+    #[msg("Previous question wasn't answered")]
+    PreviousQuestionWasNotAnswered,
     #[msg("Invalid question hash.")]
     InvalidQuestionHash,
     #[msg("Invalid question variant hash.")]

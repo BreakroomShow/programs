@@ -11,13 +11,24 @@ pub struct Trivia {
 
 #[account]
 #[derive(Default)]
-pub struct Player {
+pub struct User {
     pub trivia: Pubkey, // Trivia this Game belongs to
     pub authority: Pubkey,
     pub bump: u8,
 
     pub finished_games_counter: u32,
     pub left_invites_counter: u32,
+}
+
+#[account]
+#[derive(Default)]
+pub struct Player {
+    pub game: Pubkey, // Game this Player belongs to
+    pub user: Pubkey, // User this Player belongs to
+    pub authority: Pubkey,
+    pub bump: u8,
+
+    pub answers: Vec<u32>,
 }
 
 #[account]

@@ -1,4 +1,5 @@
 import * as anchor from '@project-serum/anchor'
+import {PublicKey, Keypair} from "@solana/web3.js"
 
 import {
     AnswerPDA,
@@ -11,7 +12,9 @@ import {
     RevealAnswerEvent,
     RevealQuestionEvent,
     TriviaPDA,
-    TriviaProgram
+    TriviaProgram,
+    User,
+    UserPDA
 } from '../types'
 import {promiseWithTimeout, sha256} from './utils'
 
@@ -22,11 +25,12 @@ describe('trivia', () => {
     const program: TriviaProgram = anchor.workspace.Trivia
     const programId = program.programId
 
-    let triviaPDA: anchor.web3.PublicKey
-    let gamePDA: anchor.web3.PublicKey
+    let triviaPDA: PublicKey
+    let gamePDA: PublicKey
+    let userPDA: PublicKey
 
-    const questionKeypair = anchor.web3.Keypair.generate()
-    const dummyQuestionKeypair = anchor.web3.Keypair.generate()
+    const questionKeypair = Keypair.generate()
+    const dummyQuestionKeypair = Keypair.generate()
 
     let questionDeadline: Date
 
@@ -172,27 +176,32 @@ describe('trivia', () => {
         expect(game.questionKeys).toStrictEqual([questionKeypair.publicKey])
     })
 
-    test('Whitelists the Player', async () => {
-        const [whitelistedPlayerPDA, whitelistedPlayerBump] = await PlayerPDA(
+    test('Whitelists the User', async () => {
+        const [_userPDA, userBump] = await UserPDA(
             programId,
             triviaPDA,
-            provider.wallet.publicKey,
+            provider.wallet.publicKey
         )
+        userPDA = _userPDA
 
-        await program.rpc.whitelistPlayer(provider.wallet.publicKey, whitelistedPlayerBump, {
-            accounts: {
-                trivia: triviaPDA,
-                whitelistedPlayer: whitelistedPlayerPDA,
-                authority: provider.wallet.publicKey,
-                systemProgram: anchor.web3.SystemProgram.programId,
-            },
-        })
-
-        await expect(
-            program.rpc.whitelistPlayer(provider.wallet.publicKey, whitelistedPlayerBump, {
+        await program.rpc.whitelistUser(
+            provider.wallet.publicKey,
+            userBump,
+            {
                 accounts: {
                     trivia: triviaPDA,
-                    whitelistedPlayer: whitelistedPlayerPDA,
+                    whitelistedUser: userPDA,
+                    authority: provider.wallet.publicKey,
+                    systemProgram: anchor.web3.SystemProgram.programId
+                }
+            }
+        )
+
+        await expect(
+            program.rpc.whitelistUser(provider.wallet.publicKey, userBump, {
+                accounts: {
+                    trivia: triviaPDA,
+                    whitelistedUser: userPDA,
                     authority: provider.wallet.publicKey,
                     systemProgram: anchor.web3.SystemProgram.programId,
                 },
@@ -203,23 +212,21 @@ describe('trivia', () => {
         expect(game.questionKeys).toStrictEqual([questionKeypair.publicKey])
     })
 
-    test('Fails to invite the Player because no invites left', async () => {
-        const [playerPDA] = await PlayerPDA(programId, triviaPDA, provider.wallet.publicKey)
+    test('Fails to invite the User because no invites left', async () => {
+        const invitedUserKeypair = Keypair.generate()
 
-        const invitedPlayerKeypair = anchor.web3.Keypair.generate()
-
-        const [invitedPlayerPDA, invitedPlayerBump] = await PlayerPDA(
+        const [invitedUserPDA, invitedUserBump] = await UserPDA(
             programId,
             triviaPDA,
-            invitedPlayerKeypair.publicKey,
+            invitedUserKeypair.publicKey,
         )
 
         await expect(
-            program.rpc.invitePlayer(invitedPlayerKeypair.publicKey, invitedPlayerBump, {
+            program.rpc.inviteUser(invitedUserKeypair.publicKey, invitedUserBump, {
                 accounts: {
                     trivia: triviaPDA,
-                    invitedPlayer: invitedPlayerPDA,
-                    player: playerPDA,
+                    invitedUser: invitedUserPDA,
+                    user: userPDA,
                     authority: provider.wallet.publicKey,
                     systemProgram: anchor.web3.SystemProgram.programId,
                 },
@@ -227,44 +234,40 @@ describe('trivia', () => {
         ).rejects.toThrow(new anchor.ProgramError(303, 'Not enough invites left.', '303: Not enough invites left.'))
     })
 
-    test('Adds an invite to the Player', async () => {
-        const [playerPDA] = await PlayerPDA(programId, triviaPDA, provider.wallet.publicKey)
-
-        await program.rpc.addPlayerInvite({
+    test('Adds an invite to the User', async () => {
+        await program.rpc.addUserInvite({
             accounts: {
                 trivia: triviaPDA,
-                player: playerPDA,
+                user: userPDA,
                 authority: provider.wallet.publicKey,
             },
         })
 
-        const player = await program.account.player.fetch(playerPDA)
-        expect(player.leftInvitesCounter).toBe(1)
+        const user: User = await program.account.user.fetch(userPDA)
+        expect(user.leftInvitesCounter).toBe(1)
     })
 
-    test('Invites the Player', async () => {
-        const [playerPDA] = await PlayerPDA(programId, triviaPDA, provider.wallet.publicKey)
+    test('Invites the User', async () => {
+        const invitedUserKeypair = Keypair.generate()
 
-        const invitedPlayerKeypair = anchor.web3.Keypair.generate()
-
-        const [invitedPlayerPDA, invitedPlayerBump] = await PlayerPDA(
+        const [invitedUserPDA, invitedUserBump] = await UserPDA(
             programId,
             triviaPDA,
-            invitedPlayerKeypair.publicKey,
+            invitedUserKeypair.publicKey,
         )
 
-        await program.rpc.invitePlayer(invitedPlayerKeypair.publicKey, invitedPlayerBump, {
+        await program.rpc.inviteUser(invitedUserKeypair.publicKey, invitedUserBump, {
             accounts: {
                 trivia: triviaPDA,
-                invitedPlayer: invitedPlayerPDA,
-                player: playerPDA,
+                invitedUser: invitedUserPDA,
+                user: userPDA,
                 authority: provider.wallet.publicKey,
                 systemProgram: anchor.web3.SystemProgram.programId,
             },
         })
 
-        const player = await program.account.player.fetch(playerPDA)
-        expect(player.leftInvitesCounter).toBe(0)
+        const user: User = await program.account.user.fetch(userPDA)
+        expect(user.leftInvitesCounter).toBe(0)
     })
 
     test('Starts the Game', async () => {
@@ -332,22 +335,17 @@ describe('trivia', () => {
     })
 
     test('Submits an Answer for the revealed Question', async () => {
-        const [playerPDA] = await PlayerPDA(programId, triviaPDA, provider.wallet.publicKey)
-        const [answerPDA, answerBump] = await AnswerPDA(
-            programId,
-            triviaPDA,
-            gamePDA,
-            questionKeypair.publicKey,
-            playerPDA,
-        )
+        const [playerPDA, playerBump] = await PlayerPDA(programId, gamePDA, userPDA)
+        const [answerPDA, answerBump] = await AnswerPDA(programId, questionKeypair.publicKey, playerPDA)
 
-        await program.rpc.submitAnswer(1, answerBump, {
+        await program.rpc.submitAnswer(1, playerBump, answerBump, {
             accounts: {
                 trivia: triviaPDA,
                 game: gamePDA,
+                user: userPDA,
+                player: playerPDA,
                 question: questionKeypair.publicKey,
                 answer: answerPDA,
-                player: playerPDA,
                 authority: provider.wallet.publicKey,
                 systemProgram: anchor.web3.SystemProgram.programId,
             },
@@ -360,9 +358,12 @@ describe('trivia', () => {
         const question = await program.account.question.fetch(questionKeypair.publicKey)
         expect(question.revealedQuestion.answerKeys).toStrictEqual([[], [answerPDA], []])
 
+        const user = await program.account.user.fetch(userPDA)
+        expect(user.finishedGamesCounter).toBe(1)
+        expect(user.leftInvitesCounter).toBe(3)
+
         const player = await program.account.player.fetch(playerPDA)
-        expect(player.finishedGamesCounter).toBe(1)
-        expect(player.leftInvitesCounter).toBe(3)
+        expect(player.answers).toStrictEqual([1])
     })
 
     test('Reveals an Answer for the finished Question', async () => {
@@ -396,8 +397,6 @@ describe('trivia', () => {
     })
 
     test('Returns all the data', async () => {
-        const [playerPDA] = await PlayerPDA(programId, triviaPDA, provider.wallet.publicKey)
-
         let trivia = await program.account.trivia.fetch(triviaPDA)
         trivia = Object.assign(trivia, {
             games: await Promise.all(
@@ -430,9 +429,9 @@ describe('trivia', () => {
             ),
         })
 
-        const player = await program.account.player.fetch(playerPDA)
+        const user = await program.account.user.fetch(userPDA)
 
         console.log(JSON.stringify(trivia))
-        console.log(JSON.stringify(player))
+        console.log(JSON.stringify(user))
     })
 })

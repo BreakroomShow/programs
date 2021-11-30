@@ -29,7 +29,7 @@ export declare type Trivia = {
             ];
         },
         {
-            "name": "whitelistPlayer";
+            "name": "whitelistUser";
             "accounts": [
                 {
                     "name": "trivia";
@@ -37,7 +37,7 @@ export declare type Trivia = {
                     "isSigner": false;
                 },
                 {
-                    "name": "whitelistedPlayer";
+                    "name": "whitelistedUser";
                     "isMut": true;
                     "isSigner": false;
                 },
@@ -54,7 +54,7 @@ export declare type Trivia = {
             ];
             "args": [
                 {
-                    "name": "playerKey";
+                    "name": "userKey";
                     "type": "publicKey";
                 },
                 {
@@ -64,7 +64,7 @@ export declare type Trivia = {
             ];
         },
         {
-            "name": "addPlayerInvite";
+            "name": "addUserInvite";
             "accounts": [
                 {
                     "name": "trivia";
@@ -72,7 +72,7 @@ export declare type Trivia = {
                     "isSigner": false;
                 },
                 {
-                    "name": "player";
+                    "name": "user";
                     "isMut": true;
                     "isSigner": false;
                 },
@@ -85,7 +85,7 @@ export declare type Trivia = {
             "args": [];
         },
         {
-            "name": "invitePlayer";
+            "name": "inviteUser";
             "accounts": [
                 {
                     "name": "trivia";
@@ -93,12 +93,12 @@ export declare type Trivia = {
                     "isSigner": false;
                 },
                 {
-                    "name": "invitedPlayer";
+                    "name": "invitedUser";
                     "isMut": true;
                     "isSigner": false;
                 },
                 {
-                    "name": "player";
+                    "name": "user";
                     "isMut": true;
                     "isSigner": false;
                 },
@@ -115,7 +115,7 @@ export declare type Trivia = {
             ];
             "args": [
                 {
-                    "name": "playerKey";
+                    "name": "userKey";
                     "type": "publicKey";
                 },
                 {
@@ -343,17 +343,22 @@ export declare type Trivia = {
                     "isSigner": false;
                 },
                 {
+                    "name": "user";
+                    "isMut": true;
+                    "isSigner": false;
+                },
+                {
+                    "name": "player";
+                    "isMut": true;
+                    "isSigner": false;
+                },
+                {
                     "name": "question";
                     "isMut": true;
                     "isSigner": false;
                 },
                 {
                     "name": "answer";
-                    "isMut": true;
-                    "isSigner": false;
-                },
-                {
-                    "name": "player";
                     "isMut": true;
                     "isSigner": false;
                 },
@@ -374,7 +379,11 @@ export declare type Trivia = {
                     "type": "u32";
                 },
                 {
-                    "name": "bump";
+                    "name": "playerBump";
+                    "type": "u8";
+                },
+                {
+                    "name": "answerBump";
                     "type": "u8";
                 }
             ];
@@ -428,7 +437,7 @@ export declare type Trivia = {
             };
         },
         {
-            "name": "player";
+            "name": "user";
             "type": {
                 "kind": "struct";
                 "fields": [
@@ -451,6 +460,36 @@ export declare type Trivia = {
                     {
                         "name": "leftInvitesCounter";
                         "type": "u32";
+                    }
+                ];
+            };
+        },
+        {
+            "name": "player";
+            "type": {
+                "kind": "struct";
+                "fields": [
+                    {
+                        "name": "game";
+                        "type": "publicKey";
+                    },
+                    {
+                        "name": "user";
+                        "type": "publicKey";
+                    },
+                    {
+                        "name": "authority";
+                        "type": "publicKey";
+                    },
+                    {
+                        "name": "bump";
+                        "type": "u8";
+                    },
+                    {
+                        "name": "answers";
+                        "type": {
+                            "vec": "u32";
+                        };
                     }
                 ];
             };
@@ -675,12 +714,12 @@ export declare type Trivia = {
         {
             "code": 301;
             "name": "PlayerAlreadyWhitelisted";
-            "msg": "Player already whitelisted.";
+            "msg": "User already whitelisted.";
         },
         {
             "code": 302;
             "name": "PlayerNotWhitelisted";
-            "msg": "Player not whitelisted.";
+            "msg": "User not whitelisted.";
         },
         {
             "code": 303;
@@ -729,31 +768,36 @@ export declare type Trivia = {
         },
         {
             "code": 312;
+            "name": "PreviousQuestionWasNotAnswered";
+            "msg": "Previous question wasn't answered";
+        },
+        {
+            "code": 313;
             "name": "InvalidQuestionHash";
             "msg": "Invalid question hash.";
         },
         {
-            "code": 313;
+            "code": 314;
             "name": "InvalidQuestionVariantHash";
             "msg": "Invalid question variant hash.";
         },
         {
-            "code": 314;
+            "code": 315;
             "name": "QuestionIsNotRevealed";
             "msg": "Question is not revealed.";
         },
         {
-            "code": 315;
+            "code": 316;
             "name": "QuestionDeadlineExceeded";
             "msg": "Question deadline exceeded.";
         },
         {
-            "code": 316;
+            "code": 317;
             "name": "VariantDoesNotExist";
             "msg": "Variant does not exist.";
         },
         {
-            "code": 317;
+            "code": 318;
             "name": "QuestionDeadlineNotExceeded";
             "msg": "Question deadline not exceeded.";
         }
