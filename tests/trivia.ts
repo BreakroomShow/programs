@@ -1,5 +1,5 @@
 import * as anchor from '@project-serum/anchor'
-import {PublicKey, Keypair} from "@solana/web3.js"
+import {Keypair, PublicKey} from "@solana/web3.js"
 
 import {
     AnswerPDA,
@@ -292,6 +292,38 @@ describe('trivia', () => {
 
         const game = await program.account.game.fetch(gamePDA)
         expect(game.startTime.toNumber()).toBeLessThan(new Date().getTime() / 1000)
+    })
+
+    test('Fails to edit the already started Game', async () => {
+        const options: EditGameOptions = {
+            name: 'CryptoClever',
+            startTime: new anchor.BN(Math.floor(new Date().getTime() / 1000) + 10 * 60),
+        }
+
+        await expect(program.rpc.editGame(options, {
+            accounts: {
+                game: gamePDA,
+                authority: provider.wallet.publicKey,
+            },
+        })).rejects.toThrow(new anchor.ProgramError(306, 'Game already started.', '306: Game already started.'))
+    })
+
+    test('Fails to move the question in the already started Game', async () => {
+        await expect(program.rpc.moveQuestion(dummyQuestionKeypair.publicKey, 0, {
+            accounts: {
+                game: gamePDA,
+                authority: provider.wallet.publicKey,
+            },
+        })).rejects.toThrow(new anchor.ProgramError(306, 'Game already started.', '306: Game already started.'))
+    })
+
+    test('Fails to remove the Question from the already started Game', async () => {
+        await expect(program.rpc.removeQuestion(dummyQuestionKeypair.publicKey, {
+            accounts: {
+                game: gamePDA,
+                authority: provider.wallet.publicKey,
+            },
+        })).rejects.toThrow(new anchor.ProgramError(306, 'Game already started.', '306: Game already started.'))
     })
 
     test('Reveals a Question for the Game', async () => {

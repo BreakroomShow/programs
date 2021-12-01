@@ -189,6 +189,8 @@ mod trivia {
     pub fn edit_game(ctx: Context<EditGame>, options: GameOptions) -> ProgramResult {
         let game = &mut ctx.accounts.game;
 
+        require!(!game.started()?, ErrorCode::GameAlreadyStarted);
+
         if let Some(name) = options.name {
             require!(!name.is_empty(), ErrorCode::InvalidGameName);
             game.name = name
@@ -269,7 +271,11 @@ mod trivia {
 
     #[access_control(access::admin(&ctx.accounts.game.authority, &ctx.accounts.authority))]
     pub fn remove_question(ctx: Context<EditQuestion>, question_key: Pubkey) -> ProgramResult {
-        remove_question_from_game(&mut ctx.accounts.game, question_key)?;
+        let game = &mut ctx.accounts.game;
+
+        require!(!game.started()?, ErrorCode::GameAlreadyStarted);
+
+        remove_question_from_game(game, question_key)?;
 
         Ok(())
     }
@@ -280,7 +286,11 @@ mod trivia {
         question_key: Pubkey,
         new_position: u32,
     ) -> ProgramResult {
-        remove_question_from_game(&mut ctx.accounts.game, question_key)?;
+        let game = &mut ctx.accounts.game;
+
+        require!(!game.started()?, ErrorCode::GameAlreadyStarted);
+
+        remove_question_from_game(game, question_key)?;
 
         ctx.accounts
             .game
