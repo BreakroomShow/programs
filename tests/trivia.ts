@@ -16,7 +16,7 @@ import {
     User,
     UserPDA
 } from '../types'
-import {promiseWithTimeout, sha256} from './utils'
+import {programError, promiseWithTimeout, sha256} from './utils'
 
 describe('trivia', () => {
     const provider = anchor.Provider.local()
@@ -152,7 +152,7 @@ describe('trivia', () => {
         expect(question.revealedQuestion).toBe(null)
     })
 
-    test('Moves the question in the Game', async () => {
+    test('Moves the Question in the Game', async () => {
         await program.rpc.moveQuestion(dummyQuestionKeypair.publicKey, 0, {
             accounts: {
                 game: gamePDA,
@@ -231,7 +231,7 @@ describe('trivia', () => {
                     systemProgram: anchor.web3.SystemProgram.programId,
                 },
             }),
-        ).rejects.toThrow(new anchor.ProgramError(303, 'Not enough invites left.', '303: Not enough invites left.'))
+        ).rejects.toThrow(programError(303, 'Not enough invites left.'))
     })
 
     test('Adds an invite to the User', async () => {
@@ -305,16 +305,16 @@ describe('trivia', () => {
                 game: gamePDA,
                 authority: provider.wallet.publicKey,
             },
-        })).rejects.toThrow(new anchor.ProgramError(306, 'Game already started.', '306: Game already started.'))
+        })).rejects.toThrow(programError(306, 'Game already started.'))
     })
 
-    test('Fails to move the question in the already started Game', async () => {
+    test('Fails to move the Question in the already started Game', async () => {
         await expect(program.rpc.moveQuestion(dummyQuestionKeypair.publicKey, 0, {
             accounts: {
                 game: gamePDA,
                 authority: provider.wallet.publicKey,
             },
-        })).rejects.toThrow(new anchor.ProgramError(306, 'Game already started.', '306: Game already started.'))
+        })).rejects.toThrow(programError(306, 'Game already started.'))
     })
 
     test('Fails to remove the Question from the already started Game', async () => {
@@ -323,7 +323,7 @@ describe('trivia', () => {
                 game: gamePDA,
                 authority: provider.wallet.publicKey,
             },
-        })).rejects.toThrow(new anchor.ProgramError(306, 'Game already started.', '306: Game already started.'))
+        })).rejects.toThrow(programError(306, 'Game already started.'))
     })
 
     test('Reveals a Question for the Game', async () => {
@@ -426,6 +426,16 @@ describe('trivia', () => {
 
         const question = await program.account.question.fetch(questionKeypair.publicKey)
         expect(question.revealedQuestion.answerVariantId).toBe(2)
+    })
+
+    test('Fails to reveal an Answer for the finished Question', async () => {
+        await expect(program.rpc.revealAnswer(1, {
+            accounts: {
+                question: questionKeypair.publicKey,
+                game: gamePDA,
+                authority: provider.wallet.publicKey,
+            },
+        })).rejects.toThrow(programError(318, 'Answer already revealed.'))
     })
 
     test('Returns all the data', async () => {

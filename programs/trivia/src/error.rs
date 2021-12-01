@@ -38,6 +38,8 @@ pub enum ErrorCode {
     QuestionDeadlineExceeded,
     #[msg("Variant does not exist.")]
     VariantDoesNotExist,
+    #[msg("Answer already revealed.")]
+    AnswerAlreadyRevealed,
     #[msg("Question deadline not exceeded.")]
     QuestionDeadlineNotExceeded,
 }

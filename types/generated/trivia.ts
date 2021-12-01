@@ -798,6 +798,11 @@ export type Trivia = {
     },
     {
       "code": 318,
+      "name": "AnswerAlreadyRevealed",
+      "msg": "Answer already revealed."
+    },
+    {
+      "code": 319,
       "name": "QuestionDeadlineNotExceeded",
       "msg": "Question deadline not exceeded."
     }
@@ -1604,6 +1609,11 @@ export const IDL: Trivia = {
     },
     {
       "code": 318,
+      "name": "AnswerAlreadyRevealed",
+      "msg": "Answer already revealed."
+    },
+    {
+      "code": 319,
       "name": "QuestionDeadlineNotExceeded",
       "msg": "Question deadline not exceeded."
     }

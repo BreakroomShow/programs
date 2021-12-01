@@ -507,6 +507,15 @@ mod trivia {
             revealed_variant_id < question.variants.len() as u32,
             ErrorCode::VariantDoesNotExist
         );
+        require!(
+            question
+                .revealed_question
+                .as_ref()
+                .unwrap()
+                .answer_variant_id
+                .is_none(),
+            ErrorCode::AnswerAlreadyRevealed
+        );
 
         question
             .revealed_question

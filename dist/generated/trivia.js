@@ -801,6 +801,11 @@ exports.IDL = {
         },
         {
             "code": 318,
+            "name": "AnswerAlreadyRevealed",
+            "msg": "Answer already revealed."
+        },
+        {
+            "code": 319,
             "name": "QuestionDeadlineNotExceeded",
             "msg": "Question deadline not exceeded."
         }
