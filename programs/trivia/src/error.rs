@@ -42,4 +42,6 @@ pub enum ErrorCode {
     AnswerAlreadyRevealed,
     #[msg("Question deadline not exceeded.")]
     QuestionDeadlineNotExceeded,
+    #[msg("Questions limit reached.")]
+    QuestionsLimitReached,
 }

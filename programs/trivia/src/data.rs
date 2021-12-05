@@ -31,7 +31,19 @@ pub struct Player {
     pub answers: Vec<u32>,
 }
 
+impl Player {
+    pub fn space() -> usize {
+        AnchorSerialize::try_to_vec(&Self {
+            answers: vec![Default::default(); 12],
+            ..Default::default()
+        })
+        .unwrap()
+        .len()
+    }
+}
+
 #[account]
+#[derive(Default)]
 pub struct Game {
     pub trivia: Pubkey, // Trivia this Game belongs to
     pub authority: Pubkey,
@@ -41,6 +53,18 @@ pub struct Game {
     pub start_time: u64,
     pub question_keys: Vec<Pubkey>,
     pub revealed_questions_counter: u32,
+}
+
+impl Game {
+    pub fn space() -> usize {
+        AnchorSerialize::try_to_vec(&Self {
+            name: String::from_utf8(vec![0; 100]).unwrap(),
+            question_keys: vec![Default::default(); 12],
+            ..Default::default()
+        })
+        .unwrap()
+        .len()
+    }
 }
 
 impl Game {
@@ -67,7 +91,23 @@ pub struct Question {
     pub revealed_question: Option<RevealedQuestion>,
 }
 
-#[derive(Default, Clone, AnchorSerialize, AnchorDeserialize)]
+impl Question {
+    pub fn space() -> usize {
+        AnchorSerialize::try_to_vec(&Self {
+            revealed_question: Some(RevealedQuestion {
+                question: String::from_utf8(vec![0; 100]).unwrap(),
+                variants: vec![String::from_utf8(vec![0; 50]).unwrap(); 3],
+                answer_variant_id: Some(Default::default()),
+                ..Default::default()
+            }),
+            ..Default::default()
+        })
+        .unwrap()
+        .len()
+    }
+}
+
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Default)]
 pub struct RevealedQuestion {
     pub question: String,
     pub variants: Vec<String>,

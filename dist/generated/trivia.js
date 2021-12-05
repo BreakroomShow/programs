@@ -491,7 +491,12 @@ exports.IDL = {
                     {
                         "name": "answers",
                         "type": {
-                            "vec": "u32"
+                            "array": [
+                                {
+                                    "option": "u32"
+                                },
+                                12
+                            ]
                         }
                     }
                 ]
@@ -516,7 +521,12 @@ exports.IDL = {
                     },
                     {
                         "name": "name",
-                        "type": "string"
+                        "type": {
+                            "array": [
+                                "u8",
+                                128
+                            ]
+                        }
                     },
                     {
                         "name": "startTime",
@@ -525,7 +535,12 @@ exports.IDL = {
                     {
                         "name": "questionKeys",
                         "type": {
-                            "vec": "publicKey"
+                            "array": [
+                                {
+                                    "option": "publicKey"
+                                },
+                                12
+                            ]
                         }
                     },
                     {
@@ -808,6 +823,11 @@ exports.IDL = {
             "code": 319,
             "name": "QuestionDeadlineNotExceeded",
             "msg": "Question deadline not exceeded."
+        },
+        {
+            "code": 320,
+            "name": "QuestionsLimitReached",
+            "msg": "Questions limit reached."
         }
     ]
 };

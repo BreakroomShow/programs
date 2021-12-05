@@ -805,6 +805,11 @@ export type Trivia = {
       "code": 319,
       "name": "QuestionDeadlineNotExceeded",
       "msg": "Question deadline not exceeded."
+    },
+    {
+      "code": 320,
+      "name": "QuestionsLimitReached",
+      "msg": "Questions limit reached."
     }
   ]
 };
@@ -1616,6 +1621,11 @@ export const IDL: Trivia = {
       "code": 319,
       "name": "QuestionDeadlineNotExceeded",
       "msg": "Question deadline not exceeded."
+    },
+    {
+      "code": 320,
+      "name": "QuestionsLimitReached",
+      "msg": "Questions limit reached."
     }
   ]
 };

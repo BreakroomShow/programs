@@ -13,3 +13,4 @@ cpi = ["no-entrypoint"]
 
 [dependencies]
 anchor-lang = "0.18.0"
+borsh = { version = "0.9.1", features = ["const-generics"] }

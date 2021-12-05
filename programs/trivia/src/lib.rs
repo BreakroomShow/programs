@@ -146,7 +146,7 @@ mod trivia {
                 trivia.games_counter.to_string().as_ref()
             ],
             bump = bump,
-            space = 1000
+            space = Game::space()
         )]
         game: Account<'info, Game>,
         authority: Signer<'info>,
@@ -233,7 +233,7 @@ mod trivia {
     pub struct AddQuestion<'info> {
         #[account(mut, has_one = authority)]
         game: Account<'info, Game>,
-        #[account(init, payer = authority, space = 1000)]
+        #[account(init, payer = authority, space = Question::space())]
         question: Account<'info, Question>,
         authority: Signer<'info>,
         system_program: Program<'info, System>,
@@ -375,7 +375,7 @@ mod trivia {
         #[account()]
         trivia: Account<'info, Trivia>,
         #[account(has_one = trivia)]
-        game: Account<'info, Game>,
+        game: Box<Account<'info, Game>>,
         #[account(mut, has_one = authority, has_one = trivia)]
         user: Account<'info, User>,
         #[account(
@@ -387,7 +387,7 @@ mod trivia {
                 user.key().as_ref()
             ],
             bump = player_bump,
-            space = 1000
+            space = Player::space()
         )]
         player: Account<'info, Player>,
         #[account(mut, has_one = game)]

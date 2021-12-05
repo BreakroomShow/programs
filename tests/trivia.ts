@@ -6,14 +6,13 @@ import {
     CreateGameOptions,
     EditGameEvent,
     EditGameOptions,
+    Game,
     GamePDA,
-    PlayerPDA,
-    Question,
+    PlayerPDA, Question,
     RevealAnswerEvent,
     RevealQuestionEvent,
     TriviaPDA,
     TriviaProgram,
-    User,
     UserPDA
 } from '../types'
 import {programError, promiseWithTimeout, sha256} from './utils'
@@ -243,7 +242,7 @@ describe('trivia', () => {
             },
         })
 
-        const user: User = await program.account.user.fetch(userPDA)
+        const user = await program.account.user.fetch(userPDA)
         expect(user.leftInvitesCounter).toBe(1)
     })
 
@@ -266,7 +265,7 @@ describe('trivia', () => {
             },
         })
 
-        const user: User = await program.account.user.fetch(userPDA)
+        const user = await program.account.user.fetch(userPDA)
         expect(user.leftInvitesCounter).toBe(0)
     })
 
@@ -354,7 +353,7 @@ describe('trivia', () => {
         const game = await program.account.game.fetch(gamePDA)
         expect(game.revealedQuestionsCounter).toBe(1)
 
-        const question = await program.account.question.fetch(questionKeypair.publicKey)
+        const question = (await program.account.question.fetch(questionKeypair.publicKey)) as Question
         expect(question.revealedQuestion.question).toBe(name)
         expect(question.revealedQuestion.variants).toStrictEqual(variants)
         expect(question.revealedQuestion.deadline).not.toBeNull()
@@ -387,7 +386,7 @@ describe('trivia', () => {
         expect(answer.question).toStrictEqual(questionKeypair.publicKey)
         expect(answer.variantId).toBe(1)
 
-        const question = await program.account.question.fetch(questionKeypair.publicKey)
+        const question = (await program.account.question.fetch(questionKeypair.publicKey)) as Question
         expect(question.revealedQuestion.answerKeys).toStrictEqual([[], [answerPDA], []])
 
         const user = await program.account.user.fetch(userPDA)
@@ -444,7 +443,7 @@ describe('trivia', () => {
             games: await Promise.all(
                 [...Array(trivia.gamesCounter).keys()].map(async (gameId) => {
                     const [gamePDA] = await GamePDA(programId, triviaPDA, gameId)
-                    const game = await program.account.game.fetch(gamePDA)
+                    const game = (await program.account.game.fetch(gamePDA)) as Game
 
                     return Object.assign(game, {
                         questions: await Promise.all(

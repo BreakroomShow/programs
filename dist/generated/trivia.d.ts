@@ -488,7 +488,12 @@ export declare type Trivia = {
                     {
                         "name": "answers";
                         "type": {
-                            "vec": "u32";
+                            "array": [
+                                {
+                                    "option": "u32";
+                                },
+                                12
+                            ];
                         };
                     }
                 ];
@@ -513,7 +518,12 @@ export declare type Trivia = {
                     },
                     {
                         "name": "name";
-                        "type": "string";
+                        "type": {
+                            "array": [
+                                "u8",
+                                128
+                            ];
+                        };
                     },
                     {
                         "name": "startTime";
@@ -522,7 +532,12 @@ export declare type Trivia = {
                     {
                         "name": "questionKeys";
                         "type": {
-                            "vec": "publicKey";
+                            "array": [
+                                {
+                                    "option": "publicKey";
+                                },
+                                12
+                            ];
                         };
                     },
                     {
@@ -805,6 +820,11 @@ export declare type Trivia = {
             "code": 319;
             "name": "QuestionDeadlineNotExceeded";
             "msg": "Question deadline not exceeded.";
+        },
+        {
+            "code": 320;
+            "name": "QuestionsLimitReached";
+            "msg": "Questions limit reached.";
         }
     ];
 };
