@@ -358,11 +358,6 @@ export type Trivia = {
           "isSigner": false
         },
         {
-          "name": "answer",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
           "name": "authority",
           "isMut": false,
           "isSigner": true
@@ -380,10 +375,6 @@ export type Trivia = {
         },
         {
           "name": "playerBump",
-          "type": "u8"
-        },
-        {
-          "name": "answerBump",
           "type": "u8"
         }
       ]
@@ -528,6 +519,12 @@ export type Trivia = {
           {
             "name": "revealedQuestionsCounter",
             "type": "u32"
+          },
+          {
+            "name": "correctAnswers",
+            "type": {
+              "vec": "u32"
+            }
           }
         ]
       }
@@ -579,30 +576,6 @@ export type Trivia = {
           }
         ]
       }
-    },
-    {
-      "name": "answer",
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "question",
-            "type": "publicKey"
-          },
-          {
-            "name": "authority",
-            "type": "publicKey"
-          },
-          {
-            "name": "bump",
-            "type": "u8"
-          },
-          {
-            "name": "variantId",
-            "type": "u32"
-          }
-        ]
-      }
     }
   ],
   "types": [
@@ -644,14 +617,6 @@ export type Trivia = {
           {
             "name": "deadline",
             "type": "u64"
-          },
-          {
-            "name": "answerKeys",
-            "type": {
-              "vec": {
-                "vec": "publicKey"
-              }
-            }
           },
           {
             "name": "answerVariantId",
@@ -1174,11 +1139,6 @@ export const IDL: Trivia = {
           "isSigner": false
         },
         {
-          "name": "answer",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
           "name": "authority",
           "isMut": false,
           "isSigner": true
@@ -1196,10 +1156,6 @@ export const IDL: Trivia = {
         },
         {
           "name": "playerBump",
-          "type": "u8"
-        },
-        {
-          "name": "answerBump",
           "type": "u8"
         }
       ]
@@ -1344,6 +1300,12 @@ export const IDL: Trivia = {
           {
             "name": "revealedQuestionsCounter",
             "type": "u32"
+          },
+          {
+            "name": "correctAnswers",
+            "type": {
+              "vec": "u32"
+            }
           }
         ]
       }
@@ -1395,30 +1357,6 @@ export const IDL: Trivia = {
           }
         ]
       }
-    },
-    {
-      "name": "answer",
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "question",
-            "type": "publicKey"
-          },
-          {
-            "name": "authority",
-            "type": "publicKey"
-          },
-          {
-            "name": "bump",
-            "type": "u8"
-          },
-          {
-            "name": "variantId",
-            "type": "u32"
-          }
-        ]
-      }
     }
   ],
   "types": [
@@ -1460,14 +1398,6 @@ export const IDL: Trivia = {
           {
             "name": "deadline",
             "type": "u64"
-          },
-          {
-            "name": "answerKeys",
-            "type": {
-              "vec": {
-                "vec": "publicKey"
-              }
-            }
           },
           {
             "name": "answerVariantId",

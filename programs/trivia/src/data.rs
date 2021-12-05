@@ -53,6 +53,7 @@ pub struct Game {
     pub start_time: u64,
     pub question_keys: Vec<Pubkey>,
     pub revealed_questions_counter: u32,
+    pub correct_answers: Vec<u32>,
 }
 
 impl Game {
@@ -60,6 +61,7 @@ impl Game {
         AnchorSerialize::try_to_vec(&Self {
             name: String::from_utf8(vec![0; 100]).unwrap(),
             question_keys: vec![Default::default(); 12],
+            correct_answers: vec![Default::default(); 12],
             ..Default::default()
         })
         .unwrap()
@@ -112,18 +114,6 @@ pub struct RevealedQuestion {
     pub question: String,
     pub variants: Vec<String>,
     pub deadline: u64, // unix timestamp in seconds
-    pub answer_keys: Vec<Vec<Pubkey>>,
 
     pub answer_variant_id: Option<u32>,
-}
-
-#[account]
-#[derive(Default)]
-pub struct Answer {
-    pub question: Pubkey, // Question this Answer belongs to
-    pub authority: Pubkey,
-    pub bump: u8,
-
-    // TODO: hide so other users can't see it until answering period ends
-    pub variant_id: u32,
 }

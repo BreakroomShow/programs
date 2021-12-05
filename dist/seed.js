@@ -1,12 +1,11 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.AnswerPDA = exports.PlayerPDA = exports.UserPDA = exports.GamePDA = exports.TriviaPDA = void 0;
+exports.PlayerPDA = exports.UserPDA = exports.GamePDA = exports.TriviaPDA = void 0;
 const web3_js_1 = require("@solana/web3.js");
 const TRIVIA = 'trivia';
 const GAME = 'game';
 const USER = 'user';
 const PLAYER = 'player';
-const ANSWER = 'answer';
 function TriviaPDA(programId) {
     return web3_js_1.PublicKey.findProgramAddress([Buffer.from(TRIVIA)], programId);
 }
@@ -23,7 +22,3 @@ function PlayerPDA(programId, game, user) {
     return web3_js_1.PublicKey.findProgramAddress([Buffer.from(PLAYER), game.toBuffer(), user.toBuffer()], programId);
 }
 exports.PlayerPDA = PlayerPDA;
-function AnswerPDA(programId, question, player) {
-    return web3_js_1.PublicKey.findProgramAddress([Buffer.from(ANSWER), question.toBuffer(), player.toBuffer()], programId);
-}
-exports.AnswerPDA = AnswerPDA;

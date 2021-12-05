@@ -2,13 +2,12 @@ import * as anchor from '@project-serum/anchor'
 import {Keypair, PublicKey} from "@solana/web3.js"
 
 import {
-    AnswerPDA,
     CreateGameOptions,
     EditGameEvent,
     EditGameOptions,
     Game,
     GamePDA,
-    PlayerPDA, Question,
+    PlayerPDA,
     RevealAnswerEvent,
     RevealQuestionEvent,
     TriviaPDA,
@@ -353,41 +352,31 @@ describe('trivia', () => {
         const game = await program.account.game.fetch(gamePDA)
         expect(game.revealedQuestionsCounter).toBe(1)
 
-        const question = (await program.account.question.fetch(questionKeypair.publicKey)) as Question
+        const question = await program.account.question.fetch(questionKeypair.publicKey)
         expect(question.revealedQuestion.question).toBe(name)
         expect(question.revealedQuestion.variants).toStrictEqual(variants)
         expect(question.revealedQuestion.deadline).not.toBeNull()
         expect(
             question.revealedQuestion.deadline.toNumber() < Date.now() / 1000 + question.time.toNumber(),
         ).toBeTruthy()
-        expect(question.revealedQuestion.answerKeys).toStrictEqual([[], [], []])
 
         questionDeadline = new Date(question.revealedQuestion.deadline.toNumber() * 1000)
     })
 
     test('Submits an Answer for the revealed Question', async () => {
         const [playerPDA, playerBump] = await PlayerPDA(programId, gamePDA, userPDA)
-        const [answerPDA, answerBump] = await AnswerPDA(programId, questionKeypair.publicKey, playerPDA)
 
-        await program.rpc.submitAnswer(1, playerBump, answerBump, {
+        await program.rpc.submitAnswer(1, playerBump, {
             accounts: {
                 trivia: triviaPDA,
                 game: gamePDA,
                 user: userPDA,
                 player: playerPDA,
                 question: questionKeypair.publicKey,
-                answer: answerPDA,
                 authority: provider.wallet.publicKey,
                 systemProgram: anchor.web3.SystemProgram.programId,
             },
         })
-
-        const answer = await program.account.answer.fetch(answerPDA)
-        expect(answer.question).toStrictEqual(questionKeypair.publicKey)
-        expect(answer.variantId).toBe(1)
-
-        const question = (await program.account.question.fetch(questionKeypair.publicKey)) as Question
-        expect(question.revealedQuestion.answerKeys).toStrictEqual([[], [answerPDA], []])
 
         const user = await program.account.user.fetch(userPDA)
         expect(user.finishedGamesCounter).toBe(1)
@@ -423,6 +412,9 @@ describe('trivia', () => {
         expect(event.game).toStrictEqual(gamePDA)
         expect(event.question).toStrictEqual(questionKeypair.publicKey)
 
+        const game = await program.account.game.fetch(gamePDA)
+        expect(game.correctAnswers).toStrictEqual([2])
+
         const question = await program.account.question.fetch(questionKeypair.publicKey)
         expect(question.revealedQuestion.answerVariantId).toBe(2)
     })
@@ -448,21 +440,7 @@ describe('trivia', () => {
                     return Object.assign(game, {
                         questions: await Promise.all(
                             game.questionKeys.map(async (questionKey) => {
-                                const question = (await program.account.question.fetch(questionKey)) as Question
-
-                                return Object.assign(question, {
-                                    revealedQuestion: Object.assign(question.revealedQuestion, {
-                                        answers: await Promise.all(
-                                            question.revealedQuestion.answerKeys.map((questionAnswerKeys) =>
-                                                Promise.all(
-                                                    questionAnswerKeys.map((answerKey) =>
-                                                        program.account.answer.fetch(answerKey),
-                                                    ),
-                                                ),
-                                            ),
-                                        ),
-                                    }),
-                                })
+                                return await program.account.question.fetch(questionKey)
                             }),
                         ),
                     })

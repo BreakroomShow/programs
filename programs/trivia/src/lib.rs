@@ -1,7 +1,7 @@
 use anchor_lang::prelude::{borsh::BorshSerialize, *};
 use anchor_lang::solana_program::hash::{extend_and_hash, hash, Hash};
 
-use crate::data::{Answer, Game, GameOptions, Question, RevealedQuestion, Trivia, User};
+use crate::data::{Game, GameOptions, Question, RevealedQuestion, Trivia, User};
 use crate::error::ErrorCode;
 use crate::event::{EditGameEvent, RevealAnswerEvent, RevealQuestionEvent};
 
@@ -355,7 +355,6 @@ mod trivia {
             question: revealed_name,
             variants: revealed_variants,
             deadline: Clock::get()?.unix_timestamp as u64 + question.time,
-            answer_keys: vec![vec![]; question.variants.len()],
             ..Default::default()
         });
 
@@ -370,7 +369,7 @@ mod trivia {
     }
 
     #[derive(Accounts)]
-    #[instruction(variant_id: u32, player_bump: u8, answer_bump: u8)]
+    #[instruction(variant_id: u32, player_bump: u8)]
     pub struct SubmitAnswer<'info> {
         #[account()]
         trivia: Account<'info, Trivia>,
@@ -392,17 +391,6 @@ mod trivia {
         player: Account<'info, Player>,
         #[account(mut, has_one = game)]
         question: Account<'info, Question>,
-        #[account(
-            init,
-            payer = authority,
-            seeds = [
-                seed::ANSWER.as_ref(),
-                question.key().as_ref(),
-                player.key().as_ref()
-            ],
-            bump = answer_bump
-        )]
-        answer: Account<'info, Answer>,
         authority: Signer<'info>,
         system_program: Program<'info, System>,
     }
@@ -412,11 +400,9 @@ mod trivia {
         ctx: Context<SubmitAnswer>,
         variant_id: u32,
         player_bump: u8,
-        answer_bump: u8,
     ) -> ProgramResult {
         let game = &ctx.accounts.game;
         let question = &mut ctx.accounts.question;
-        let answer = &mut ctx.accounts.answer;
         let user = &mut ctx.accounts.user;
         let player = &mut ctx.accounts.player;
         let authority = &ctx.accounts.authority;
@@ -461,20 +447,6 @@ mod trivia {
                 user.left_invites_counter = INVITES_AFTER_FIRST_GAME;
             }
         }
-
-        answer.question = question.key();
-        answer.authority = authority.key();
-        answer.bump = answer_bump;
-        answer.variant_id = variant_id;
-
-        question
-            .revealed_question
-            .as_mut()
-            .unwrap()
-            .answer_keys
-            .get_mut(variant_id as usize)
-            .ok_or(ErrorCode::VariantDoesNotExist)?
-            .push(answer.key());
 
         Ok(())
     }
@@ -522,6 +494,8 @@ mod trivia {
             .as_mut()
             .unwrap()
             .answer_variant_id = Some(revealed_variant_id);
+
+        game.correct_answers.push(revealed_variant_id);
 
         emit!(RevealAnswerEvent {
             game: game.key(),

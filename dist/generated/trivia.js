@@ -361,11 +361,6 @@ exports.IDL = {
                     "isSigner": false
                 },
                 {
-                    "name": "answer",
-                    "isMut": true,
-                    "isSigner": false
-                },
-                {
                     "name": "authority",
                     "isMut": false,
                     "isSigner": true
@@ -383,10 +378,6 @@ exports.IDL = {
                 },
                 {
                     "name": "playerBump",
-                    "type": "u8"
-                },
-                {
-                    "name": "answerBump",
                     "type": "u8"
                 }
             ]
@@ -491,12 +482,7 @@ exports.IDL = {
                     {
                         "name": "answers",
                         "type": {
-                            "array": [
-                                {
-                                    "option": "u32"
-                                },
-                                12
-                            ]
+                            "vec": "u32"
                         }
                     }
                 ]
@@ -521,12 +507,7 @@ exports.IDL = {
                     },
                     {
                         "name": "name",
-                        "type": {
-                            "array": [
-                                "u8",
-                                128
-                            ]
-                        }
+                        "type": "string"
                     },
                     {
                         "name": "startTime",
@@ -535,17 +516,18 @@ exports.IDL = {
                     {
                         "name": "questionKeys",
                         "type": {
-                            "array": [
-                                {
-                                    "option": "publicKey"
-                                },
-                                12
-                            ]
+                            "vec": "publicKey"
                         }
                     },
                     {
                         "name": "revealedQuestionsCounter",
                         "type": "u32"
+                    },
+                    {
+                        "name": "correctAnswers",
+                        "type": {
+                            "vec": "u32"
+                        }
                     }
                 ]
             }
@@ -597,30 +579,6 @@ exports.IDL = {
                     }
                 ]
             }
-        },
-        {
-            "name": "answer",
-            "type": {
-                "kind": "struct",
-                "fields": [
-                    {
-                        "name": "question",
-                        "type": "publicKey"
-                    },
-                    {
-                        "name": "authority",
-                        "type": "publicKey"
-                    },
-                    {
-                        "name": "bump",
-                        "type": "u8"
-                    },
-                    {
-                        "name": "variantId",
-                        "type": "u32"
-                    }
-                ]
-            }
         }
     ],
     "types": [
@@ -662,14 +620,6 @@ exports.IDL = {
                     {
                         "name": "deadline",
                         "type": "u64"
-                    },
-                    {
-                        "name": "answerKeys",
-                        "type": {
-                            "vec": {
-                                "vec": "publicKey"
-                            }
-                        }
                     },
                     {
                         "name": "answerVariantId",

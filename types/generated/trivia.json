@@ -358,11 +358,6 @@
           "isSigner": false
         },
         {
-          "name": "answer",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
           "name": "authority",
           "isMut": false,
           "isSigner": true
@@ -380,10 +375,6 @@
         },
         {
           "name": "playerBump",
-          "type": "u8"
-        },
-        {
-          "name": "answerBump",
           "type": "u8"
         }
       ]
@@ -528,6 +519,12 @@
           {
             "name": "revealedQuestionsCounter",
             "type": "u32"
+          },
+          {
+            "name": "correctAnswers",
+            "type": {
+              "vec": "u32"
+            }
           }
         ]
       }
@@ -579,30 +576,6 @@
           }
         ]
       }
-    },
-    {
-      "name": "Answer",
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "question",
-            "type": "publicKey"
-          },
-          {
-            "name": "authority",
-            "type": "publicKey"
-          },
-          {
-            "name": "bump",
-            "type": "u8"
-          },
-          {
-            "name": "variantId",
-            "type": "u32"
-          }
-        ]
-      }
     }
   ],
   "types": [
@@ -644,14 +617,6 @@
           {
             "name": "deadline",
             "type": "u64"
-          },
-          {
-            "name": "answerKeys",
-            "type": {
-              "vec": {
-                "vec": "publicKey"
-              }
-            }
           },
           {
             "name": "answerVariantId",
