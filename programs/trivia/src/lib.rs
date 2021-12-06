@@ -11,7 +11,7 @@ mod error;
 mod event;
 mod seed;
 
-declare_id!("F6JZ61gqo32Mwv4XBwGsVmamsaZCgyVoz8VUvefsqUhm");
+declare_id!("ANJEwjiYZTmsMkXfgvFGPcEEQ52sXgehC7oBWzJxtFUZ");
 
 const INVITES_AFTER_FIRST_GAME: u32 = 3;
 
