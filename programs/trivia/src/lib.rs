@@ -1,9 +1,10 @@
+#![feature(derive_default_enum)]
 use anchor_lang::prelude::{borsh::BorshSerialize, *};
 use anchor_lang::solana_program::hash::{extend_and_hash, hash, Hash};
 
-use crate::data::{Game, GameOptions, Question, RevealedQuestion, Trivia, User};
+use crate::data::{Game, GameOptions, Question, RevealedQuestion, Trivia, User, WinClaimingStatus};
 use crate::error::ErrorCode;
-use crate::event::{EditGameEvent, RevealAnswerEvent, RevealQuestionEvent};
+use crate::event::{EditGameEvent, RevealAnswerEvent, RevealQuestionEvent, WinClaimingStartedEvent};
 
 mod access;
 mod data;
@@ -11,7 +12,7 @@ mod error;
 mod event;
 mod seed;
 
-declare_id!("ANJEwjiYZTmsMkXfgvFGPcEEQ52sXgehC7oBWzJxtFUZ");
+declare_id!("L9zSYo3K5dHMNhe4BdLLntASYLwBjvBknsbd6PxgYNN");
 
 const INVITES_AFTER_FIRST_GAME: u32 = 3;
 
@@ -155,6 +156,7 @@ mod trivia {
 
     #[access_control(access::admin(&ctx.accounts.trivia.authority, &ctx.accounts.authority))]
     pub fn create_game(ctx: Context<CreateGame>, options: GameOptions, bump: u8) -> ProgramResult {
+        // todo: take mint, token account and get token account ownership
         let trivia = &mut ctx.accounts.trivia;
         let game = &mut ctx.accounts.game;
 
@@ -172,6 +174,8 @@ mod trivia {
         game.bump = bump;
         game.name = name;
         game.start_time = start_time;
+        game.winners = 0;
+        game.win_claiming_status = WinClaimingStatus::NotStarted;
 
         trivia.games_counter += 1;
 
@@ -369,17 +373,26 @@ mod trivia {
     }
 
     #[derive(Accounts)]
-    #[instruction(variant_id: u32, player_bump: u8)]
+    #[instruction(variant_id: u32, player_bump: u8, user_bump: u8)]
     pub struct SubmitAnswer<'info> {
         #[account()]
         trivia: Account<'info, Trivia>,
         #[account(has_one = trivia)]
         game: Box<Account<'info, Game>>,
-        #[account(mut, has_one = authority, has_one = trivia)]
+        #[account(
+            init_if_needed,
+            payer = fee_payer,
+            seeds = [
+                seed::USER.as_ref(),
+                trivia.key().as_ref(),
+                authority.key().as_ref()
+            ],
+            bump = user_bump
+        )]
         user: Account<'info, User>,
         #[account(
             init_if_needed,
-            payer = authority,
+            payer = fee_payer,
             seeds = [
                 seed::PLAYER.as_ref(),
                 game.key().as_ref(),
@@ -392,15 +405,19 @@ mod trivia {
         #[account(mut, has_one = game)]
         question: Account<'info, Question>,
         authority: Signer<'info>,
+        fee_payer: Signer<'info>,
         system_program: Program<'info, System>,
     }
 
-    #[access_control(access::user(&ctx.accounts.trivia, &ctx.accounts.user))]
     pub fn submit_answer(
         ctx: Context<SubmitAnswer>,
         variant_id: u32,
         player_bump: u8,
+        user_bump: u8,
     ) -> ProgramResult {
+        msg!("test");
+
+        let trivia = &ctx.accounts.trivia;
         let game = &ctx.accounts.game;
         let question = &mut ctx.accounts.question;
         let user = &mut ctx.accounts.user;
@@ -431,6 +448,12 @@ mod trivia {
 
         player.answers.push(variant_id);
 
+        if user.authority.to_bytes() == [0; 32] {
+            user.trivia = trivia.key();
+            user.authority = authority.key();
+            user.bump = user_bump;
+        }
+
         if player.authority.to_bytes() == [0; 32] {
             require!(question_id == 0, ErrorCode::GameAlreadyStarted);
 
@@ -438,6 +461,7 @@ mod trivia {
             player.user = user.key();
             player.authority = authority.key();
             player.bump = player_bump;
+            player.claimed_win = false;
         }
 
         if question_id == game.question_keys.len() - 1 {
@@ -504,6 +528,99 @@ mod trivia {
 
         Ok(())
     }
+
+    #[derive(Accounts)]
+    pub struct StartWinClaiming<'info> {
+        #[account(mut, has_one = authority)]
+        game: Account<'info, Game>,
+        authority: Signer<'info>,
+    }
+
+    #[access_control(access::admin(&ctx.accounts.game.authority, &ctx.accounts.authority))]
+    pub fn start_win_claiming(ctx: Context<StartWinClaiming>) -> ProgramResult {
+        let game = &mut ctx.accounts.game;
+
+        require!(game.started()?, ErrorCode::GameNotStarted);
+        require!(game.win_claiming_status == WinClaimingStatus::NotStarted, ErrorCode::WinClaimingAlreadyStarted);
+
+        game.win_claiming_status = WinClaimingStatus::Active;
+
+        emit!(WinClaimingStartedEvent {
+            game: game.key(),
+        });
+
+        Ok(())
+    }
+
+    #[derive(Accounts)]
+    pub struct FinishWinClaiming<'info> {
+        #[account(mut, has_one = authority)]
+        game: Account<'info, Game>,
+        authority: Signer<'info>,
+    }
+
+    #[access_control(access::admin(&ctx.accounts.game.authority, &ctx.accounts.authority))]
+    pub fn finish_win_claiming(ctx: Context<FinishWinClaiming>) -> ProgramResult {
+        let game = &mut ctx.accounts.game;
+
+        require!(game.started()?, ErrorCode::GameNotStarted);
+        require!(game.win_claiming_status == WinClaimingStatus::Active, ErrorCode::WinClaimingNotActive);
+
+        game.win_claiming_status = WinClaimingStatus::Finished;
+
+        // if game.winners == 0 {
+        //     game.prize = 0;
+        // } else {
+        //     game.prize = game.prize_fund_total / game.winners;
+        // }
+
+        // todo: calculate prize here
+        // todo: what if no one won?
+
+        Ok(())
+    }
+
+    #[derive(Accounts)]
+    pub struct ClaimWin<'info> {
+        #[account()]
+        trivia: Account<'info, Trivia>,
+        #[account(mut, has_one = trivia)]
+        game: Account<'info, Game>,
+        #[account(has_one = authority, has_one = trivia)]
+        user: Account<'info, User>,
+        #[account(mut, has_one = authority, has_one = user)]
+        player: Account<'info, Player>,
+        authority: Signer<'info>,
+        system_program: Program<'info, System>,
+    }
+
+    #[access_control(access::user(&ctx.accounts.trivia, &ctx.accounts.user))]
+    pub fn claim_win(
+        ctx: Context<ClaimWin>,
+    ) -> ProgramResult {
+        let game = &mut ctx.accounts.game;
+        let player = &mut ctx.accounts.player;
+
+        require!(game.started()?, ErrorCode::GameNotStarted);
+        require!(!player.claimed_win, ErrorCode::WinAlreadyClaimed);
+        require!(game.win_claiming_status == WinClaimingStatus::Active, ErrorCode::WinClaimingNotActive);
+        require!(player.answers.len() == game.correct_answers.len(), ErrorCode::AnswerCountMismatch);
+
+        for (player_answer, correct_answer) in player.answers.iter()
+            .zip(game.correct_answers.iter())
+        {
+            require!(player_answer == correct_answer, ErrorCode::WrongAnswer);
+            // todo: extra lifes
+        }
+
+        player.claimed_win = true;
+        game.winners += 1;
+
+        Ok(())
+    }
+
+    // todo: probably, make an event to stop claiming questions
+    // todo: instruction to claim the winnings from the ownership account
 }
 
 fn remove_question_from_game(game: &mut Account<Game>, question_key: Pubkey) -> ProgramResult {

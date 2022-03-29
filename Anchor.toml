@@ -3,10 +3,10 @@ cluster = "localnet"
 wallet = "~/.config/solana/id.json"
 
 [programs.localnet]
-trivia = "ANJEwjiYZTmsMkXfgvFGPcEEQ52sXgehC7oBWzJxtFUZ"
+trivia = "L9zSYo3K5dHMNhe4BdLLntASYLwBjvBknsbd6PxgYNN"
 
 [programs.devnet]
-trivia = "ANJEwjiYZTmsMkXfgvFGPcEEQ52sXgehC7oBWzJxtFUZ"
+trivia = "L9zSYo3K5dHMNhe4BdLLntASYLwBjvBknsbd6PxgYNN"
 
 [scripts]
 test = "yarn test"

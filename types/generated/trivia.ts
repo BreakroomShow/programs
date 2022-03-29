@@ -1,5 +1,5 @@
 export type Trivia = {
-  "version": "0.0.0",
+  "version": "0.1.0",
   "name": "trivia",
   "instructions": [
     {
@@ -363,6 +363,11 @@ export type Trivia = {
           "isSigner": true
         },
         {
+          "name": "feePayer",
+          "isMut": false,
+          "isSigner": true
+        },
+        {
           "name": "systemProgram",
           "isMut": false,
           "isSigner": false
@@ -375,6 +380,10 @@ export type Trivia = {
         },
         {
           "name": "playerBump",
+          "type": "u8"
+        },
+        {
+          "name": "userBump",
           "type": "u8"
         }
       ]
@@ -404,6 +413,74 @@ export type Trivia = {
           "type": "u32"
         }
       ]
+    },
+    {
+      "name": "startWinClaiming",
+      "accounts": [
+        {
+          "name": "game",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "authority",
+          "isMut": false,
+          "isSigner": true
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "finishWinClaiming",
+      "accounts": [
+        {
+          "name": "game",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "authority",
+          "isMut": false,
+          "isSigner": true
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "claimWin",
+      "accounts": [
+        {
+          "name": "trivia",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "game",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "user",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "player",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "authority",
+          "isMut": false,
+          "isSigner": true
+        },
+        {
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": []
     }
   ],
   "accounts": [
@@ -481,6 +558,10 @@ export type Trivia = {
             "type": {
               "vec": "u32"
             }
+          },
+          {
+            "name": "claimedWin",
+            "type": "bool"
           }
         ]
       }
@@ -524,6 +605,16 @@ export type Trivia = {
             "name": "correctAnswers",
             "type": {
               "vec": "u32"
+            }
+          },
+          {
+            "name": "winners",
+            "type": "u32"
+          },
+          {
+            "name": "winClaimingStatus",
+            "type": {
+              "defined": "WinClaimingStatus"
             }
           }
         ]
@@ -626,6 +717,23 @@ export type Trivia = {
           }
         ]
       }
+    },
+    {
+      "name": "WinClaimingStatus",
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "NotStarted"
+          },
+          {
+            "name": "Active"
+          },
+          {
+            "name": "Finished"
+          }
+        ]
+      }
     }
   ],
   "events": [
@@ -668,119 +776,154 @@ export type Trivia = {
           "index": false
         }
       ]
+    },
+    {
+      "name": "WinClaimingStartedEvent",
+      "fields": [
+        {
+          "name": "game",
+          "type": "publicKey",
+          "index": false
+        }
+      ]
     }
   ],
   "errors": [
     {
-      "code": 300,
+      "code": 6000,
       "name": "Unauthorized",
       "msg": "You do not have sufficient permissions to perform this action."
     },
     {
-      "code": 301,
+      "code": 6001,
       "name": "PlayerAlreadyWhitelisted",
       "msg": "User already whitelisted."
     },
     {
-      "code": 302,
+      "code": 6002,
       "name": "PlayerNotWhitelisted",
       "msg": "User not whitelisted."
     },
     {
-      "code": 303,
+      "code": 6003,
       "name": "NotEnoughInvitesLeft",
       "msg": "Not enough invites left."
     },
     {
-      "code": 304,
+      "code": 6004,
       "name": "InvalidGameName",
       "msg": "Invalid game name."
     },
     {
-      "code": 305,
+      "code": 6005,
       "name": "InvalidGameStartTime",
       "msg": "Game start time must be in the future."
     },
     {
-      "code": 306,
+      "code": 6006,
       "name": "GameAlreadyStarted",
       "msg": "Game already started."
     },
     {
-      "code": 307,
+      "code": 6007,
       "name": "GameNotStarted",
       "msg": "Game not started."
     },
     {
-      "code": 308,
+      "code": 6008,
       "name": "RevealedQuestionsOnGameCreation",
       "msg": "No questions should be revealed on game creation."
     },
     {
-      "code": 309,
+      "code": 6009,
       "name": "GameDoesNotExist",
       "msg": "Game does not exist."
     },
     {
-      "code": 310,
+      "code": 6010,
       "name": "QuestionRevealedAhead",
       "msg": "Question can't be revealed ahead."
     },
     {
-      "code": 311,
+      "code": 6011,
       "name": "QuestionDoesNotExist",
       "msg": "Question does not exist."
     },
     {
-      "code": 312,
+      "code": 6012,
       "name": "PreviousQuestionWasNotAnswered",
       "msg": "Previous question wasn't answered"
     },
     {
-      "code": 313,
+      "code": 6013,
       "name": "InvalidQuestionHash",
       "msg": "Invalid question hash."
     },
     {
-      "code": 314,
+      "code": 6014,
       "name": "InvalidQuestionVariantHash",
       "msg": "Invalid question variant hash."
     },
     {
-      "code": 315,
+      "code": 6015,
       "name": "QuestionIsNotRevealed",
       "msg": "Question is not revealed."
     },
     {
-      "code": 316,
+      "code": 6016,
       "name": "QuestionDeadlineExceeded",
       "msg": "Question deadline exceeded."
     },
     {
-      "code": 317,
+      "code": 6017,
       "name": "VariantDoesNotExist",
       "msg": "Variant does not exist."
     },
     {
-      "code": 318,
+      "code": 6018,
       "name": "AnswerAlreadyRevealed",
       "msg": "Answer already revealed."
     },
     {
-      "code": 319,
+      "code": 6019,
       "name": "QuestionDeadlineNotExceeded",
       "msg": "Question deadline not exceeded."
     },
     {
-      "code": 320,
+      "code": 6020,
       "name": "QuestionsLimitReached",
       "msg": "Questions limit reached."
+    },
+    {
+      "code": 6021,
+      "name": "WinClaimingAlreadyStarted",
+      "msg": "Win claiming already started."
+    },
+    {
+      "code": 6022,
+      "name": "WinClaimingNotActive",
+      "msg": "Win claiming should be active."
+    },
+    {
+      "code": 6023,
+      "name": "WinAlreadyClaimed",
+      "msg": "Win already claimed for this user."
+    },
+    {
+      "code": 6024,
+      "name": "AnswerCountMismatch",
+      "msg": "Answer count do not match."
+    },
+    {
+      "code": 6025,
+      "name": "WrongAnswer",
+      "msg": "Wrong answer."
     }
   ]
 };
 
 export const IDL: Trivia = {
-  "version": "0.0.0",
+  "version": "0.1.0",
   "name": "trivia",
   "instructions": [
     {
@@ -1144,6 +1287,11 @@ export const IDL: Trivia = {
           "isSigner": true
         },
         {
+          "name": "feePayer",
+          "isMut": false,
+          "isSigner": true
+        },
+        {
           "name": "systemProgram",
           "isMut": false,
           "isSigner": false
@@ -1156,6 +1304,10 @@ export const IDL: Trivia = {
         },
         {
           "name": "playerBump",
+          "type": "u8"
+        },
+        {
+          "name": "userBump",
           "type": "u8"
         }
       ]
@@ -1185,6 +1337,74 @@ export const IDL: Trivia = {
           "type": "u32"
         }
       ]
+    },
+    {
+      "name": "startWinClaiming",
+      "accounts": [
+        {
+          "name": "game",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "authority",
+          "isMut": false,
+          "isSigner": true
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "finishWinClaiming",
+      "accounts": [
+        {
+          "name": "game",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "authority",
+          "isMut": false,
+          "isSigner": true
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "claimWin",
+      "accounts": [
+        {
+          "name": "trivia",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "game",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "user",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "player",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "authority",
+          "isMut": false,
+          "isSigner": true
+        },
+        {
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": []
     }
   ],
   "accounts": [
@@ -1262,6 +1482,10 @@ export const IDL: Trivia = {
             "type": {
               "vec": "u32"
             }
+          },
+          {
+            "name": "claimedWin",
+            "type": "bool"
           }
         ]
       }
@@ -1305,6 +1529,16 @@ export const IDL: Trivia = {
             "name": "correctAnswers",
             "type": {
               "vec": "u32"
+            }
+          },
+          {
+            "name": "winners",
+            "type": "u32"
+          },
+          {
+            "name": "winClaimingStatus",
+            "type": {
+              "defined": "WinClaimingStatus"
             }
           }
         ]
@@ -1407,6 +1641,23 @@ export const IDL: Trivia = {
           }
         ]
       }
+    },
+    {
+      "name": "WinClaimingStatus",
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "NotStarted"
+          },
+          {
+            "name": "Active"
+          },
+          {
+            "name": "Finished"
+          }
+        ]
+      }
     }
   ],
   "events": [
@@ -1449,113 +1700,148 @@ export const IDL: Trivia = {
           "index": false
         }
       ]
+    },
+    {
+      "name": "WinClaimingStartedEvent",
+      "fields": [
+        {
+          "name": "game",
+          "type": "publicKey",
+          "index": false
+        }
+      ]
     }
   ],
   "errors": [
     {
-      "code": 300,
+      "code": 6000,
       "name": "Unauthorized",
       "msg": "You do not have sufficient permissions to perform this action."
     },
     {
-      "code": 301,
+      "code": 6001,
       "name": "PlayerAlreadyWhitelisted",
       "msg": "User already whitelisted."
     },
     {
-      "code": 302,
+      "code": 6002,
       "name": "PlayerNotWhitelisted",
       "msg": "User not whitelisted."
     },
     {
-      "code": 303,
+      "code": 6003,
       "name": "NotEnoughInvitesLeft",
       "msg": "Not enough invites left."
     },
     {
-      "code": 304,
+      "code": 6004,
       "name": "InvalidGameName",
       "msg": "Invalid game name."
     },
     {
-      "code": 305,
+      "code": 6005,
       "name": "InvalidGameStartTime",
       "msg": "Game start time must be in the future."
     },
     {
-      "code": 306,
+      "code": 6006,
       "name": "GameAlreadyStarted",
       "msg": "Game already started."
     },
     {
-      "code": 307,
+      "code": 6007,
       "name": "GameNotStarted",
       "msg": "Game not started."
     },
     {
-      "code": 308,
+      "code": 6008,
       "name": "RevealedQuestionsOnGameCreation",
       "msg": "No questions should be revealed on game creation."
     },
     {
-      "code": 309,
+      "code": 6009,
       "name": "GameDoesNotExist",
       "msg": "Game does not exist."
     },
     {
-      "code": 310,
+      "code": 6010,
       "name": "QuestionRevealedAhead",
       "msg": "Question can't be revealed ahead."
     },
     {
-      "code": 311,
+      "code": 6011,
       "name": "QuestionDoesNotExist",
       "msg": "Question does not exist."
     },
     {
-      "code": 312,
+      "code": 6012,
       "name": "PreviousQuestionWasNotAnswered",
       "msg": "Previous question wasn't answered"
     },
     {
-      "code": 313,
+      "code": 6013,
       "name": "InvalidQuestionHash",
       "msg": "Invalid question hash."
     },
     {
-      "code": 314,
+      "code": 6014,
       "name": "InvalidQuestionVariantHash",
       "msg": "Invalid question variant hash."
     },
     {
-      "code": 315,
+      "code": 6015,
       "name": "QuestionIsNotRevealed",
       "msg": "Question is not revealed."
     },
     {
-      "code": 316,
+      "code": 6016,
       "name": "QuestionDeadlineExceeded",
       "msg": "Question deadline exceeded."
     },
     {
-      "code": 317,
+      "code": 6017,
       "name": "VariantDoesNotExist",
       "msg": "Variant does not exist."
     },
     {
-      "code": 318,
+      "code": 6018,
       "name": "AnswerAlreadyRevealed",
       "msg": "Answer already revealed."
     },
     {
-      "code": 319,
+      "code": 6019,
       "name": "QuestionDeadlineNotExceeded",
       "msg": "Question deadline not exceeded."
     },
     {
-      "code": 320,
+      "code": 6020,
       "name": "QuestionsLimitReached",
       "msg": "Questions limit reached."
+    },
+    {
+      "code": 6021,
+      "name": "WinClaimingAlreadyStarted",
+      "msg": "Win claiming already started."
+    },
+    {
+      "code": 6022,
+      "name": "WinClaimingNotActive",
+      "msg": "Win claiming should be active."
+    },
+    {
+      "code": 6023,
+      "name": "WinAlreadyClaimed",
+      "msg": "Win already claimed for this user."
+    },
+    {
+      "code": 6024,
+      "name": "AnswerCountMismatch",
+      "msg": "Answer count do not match."
+    },
+    {
+      "code": 6025,
+      "name": "WrongAnswer",
+      "msg": "Wrong answer."
     }
   ]
 };

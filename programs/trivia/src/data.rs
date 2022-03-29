@@ -29,6 +29,8 @@ pub struct Player {
     pub bump: u8,
 
     pub answers: Vec<u32>,
+
+    pub claimed_win: bool,
 }
 
 impl Player {
@@ -40,6 +42,14 @@ impl Player {
         .unwrap()
         .len()
     }
+}
+
+#[derive(Default, AnchorSerialize, AnchorDeserialize, Copy, Clone, PartialEq, Eq)]
+pub enum WinClaimingStatus {
+    #[default]
+    NotStarted,
+    Active,
+    Finished,
 }
 
 #[account]
@@ -54,6 +64,9 @@ pub struct Game {
     pub question_keys: Vec<Pubkey>,
     pub revealed_questions_counter: u32,
     pub correct_answers: Vec<u32>,
+
+    pub winners: u32,
+    pub win_claiming_status: WinClaimingStatus,
 }
 
 impl Game {

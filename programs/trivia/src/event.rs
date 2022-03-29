@@ -16,3 +16,8 @@ pub struct RevealAnswerEvent {
     pub game: Pubkey,
     pub question: Pubkey,
 }
+
+#[event]
+pub struct WinClaimingStartedEvent {
+    pub game: Pubkey,
+}

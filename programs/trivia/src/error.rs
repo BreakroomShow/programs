@@ -44,4 +44,14 @@ pub enum ErrorCode {
     QuestionDeadlineNotExceeded,
     #[msg("Questions limit reached.")]
     QuestionsLimitReached,
+    #[msg("Win claiming already started.")]
+    WinClaimingAlreadyStarted,
+    #[msg("Win claiming should be active.")]
+    WinClaimingNotActive,
+    #[msg("Win already claimed for this user.")]
+    WinAlreadyClaimed,
+    #[msg("Answer count do not match.")]
+    AnswerCountMismatch,
+    #[msg("Wrong answer.")]
+    WrongAnswer,
 }

@@ -3,3 +3,5 @@
 .anchor
 node_modules
 yarn-error.log
+test-ledger
+test.txt
