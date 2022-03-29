@@ -12,7 +12,7 @@ mod error;
 mod event;
 mod seed;
 
-declare_id!("L9zSYo3K5dHMNhe4BdLLntASYLwBjvBknsbd6PxgYNN");
+declare_id!("Eb7ZLJqhTDmLDcoGbKUy6DKxSBraNEsfbDST4FWiXAwv");
 
 const INVITES_AFTER_FIRST_GAME: u32 = 3;
 
@@ -88,6 +88,8 @@ mod trivia {
     #[access_control(access::admin(&ctx.accounts.trivia.authority, &ctx.accounts.authority))]
     pub fn add_user_invite(ctx: Context<AddUserInvite>) -> ProgramResult {
         ctx.accounts.user.left_invites_counter += 1;
+
+        msg!("test");
 
         Ok(())
     }

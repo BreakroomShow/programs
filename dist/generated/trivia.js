@@ -459,12 +459,12 @@ exports.IDL = {
                 },
                 {
                     "name": "game",
-                    "isMut": false,
+                    "isMut": true,
                     "isSigner": false
                 },
                 {
                     "name": "user",
-                    "isMut": true,
+                    "isMut": false,
                     "isSigner": false
                 },
                 {
@@ -473,17 +473,7 @@ exports.IDL = {
                     "isSigner": false
                 },
                 {
-                    "name": "question",
-                    "isMut": true,
-                    "isSigner": false
-                },
-                {
                     "name": "authority",
-                    "isMut": false,
-                    "isSigner": true
-                },
-                {
-                    "name": "feePayer",
                     "isMut": false,
                     "isSigner": true
                 },
@@ -916,6 +906,21 @@ exports.IDL = {
             "code": 6022,
             "name": "WinClaimingNotActive",
             "msg": "Win claiming should be active."
+        },
+        {
+            "code": 6023,
+            "name": "WinAlreadyClaimed",
+            "msg": "Win already claimed for this user."
+        },
+        {
+            "code": 6024,
+            "name": "AnswerCountMismatch",
+            "msg": "Answer count do not match."
+        },
+        {
+            "code": 6025,
+            "name": "WrongAnswer",
+            "msg": "Wrong answer."
         }
     ]
 };
