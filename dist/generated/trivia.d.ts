@@ -475,11 +475,6 @@ export declare type Trivia = {
                     "isSigner": true;
                 },
                 {
-                    "name": "feePayer";
-                    "isMut": false;
-                    "isSigner": true;
-                },
-                {
                     "name": "systemProgram";
                     "isMut": false;
                     "isSigner": false;

@@ -6,6 +6,8 @@ const TRIVIA = 'trivia'
 const GAME = 'game'
 const USER = 'user'
 const PLAYER = 'player'
+const VAULT = 'vault'
+const VAULT_AUTHORITY = 'vault_authority'
 
 export type PDA = [PublicKey, number]
 
@@ -38,4 +40,18 @@ export function PlayerPDA(
     user: PublicKey
 ): Promise<PDA> {
     return PublicKey.findProgramAddress([Buffer.from(PLAYER), game.toBuffer(), user.toBuffer()], programId)
+}
+
+export function PrizeFundVaultPDA(
+  programId: TriviaProgram['programId'],
+  game: PublicKey,
+): Promise<PDA> {
+    return PublicKey.findProgramAddress([Buffer.from(VAULT), game.toBuffer()], programId)
+}
+
+export function PrizeFundVaultAuthorityPDA(
+  programId: TriviaProgram['programId'],
+  game: PublicKey,
+): Promise<PDA> {
+    return PublicKey.findProgramAddress([Buffer.from(VAULT_AUTHORITY), game.toBuffer()], programId)
 }

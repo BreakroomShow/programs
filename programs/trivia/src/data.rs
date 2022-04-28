@@ -31,6 +31,7 @@ pub struct Player {
     pub answers: Vec<u32>,
 
     pub claimed_win: bool,
+    pub claimed_prize: bool,
 }
 
 impl Player {
@@ -67,6 +68,11 @@ pub struct Game {
 
     pub winners: u32,
     pub win_claiming_status: WinClaimingStatus,
+
+    pub prize_fund_vault: Pubkey,
+    pub prize_fund_amount: u64,
+    pub prize_fund_vault_authority: Pubkey,
+    pub prize_fund_vault_authority_bump: u8,
 }
 
 impl Game {
@@ -86,12 +92,17 @@ impl Game {
     pub fn started(&self) -> Result<bool, ProgramError> {
         Ok(self.start_time <= Clock::get()?.unix_timestamp as u64)
     }
+
+    pub fn prize(&self) -> u64 {
+        self.prize_fund_amount / self.winners as u64
+    }
 }
 
 #[derive(Clone, AnchorSerialize, AnchorDeserialize)]
 pub struct GameOptions {
     pub name: Option<String>,
     pub start_time: Option<u64>, // unix timestamp in seconds
+    pub prize_fund_amount: Option<u64>, // unix timestamp in seconds
 }
 
 #[account]

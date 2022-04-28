@@ -14,6 +14,8 @@ pub enum ErrorCode {
     InvalidGameName,
     #[msg("Game start time must be in the future.")]
     InvalidGameStartTime,
+    #[msg("Game should have a prize fund.")]
+    InvalidPrizeFundAmount,
     #[msg("Game already started.")]
     GameAlreadyStarted,
     #[msg("Game not started.")]
@@ -48,10 +50,16 @@ pub enum ErrorCode {
     WinClaimingAlreadyStarted,
     #[msg("Win claiming should be active.")]
     WinClaimingNotActive,
+    #[msg("Win claiming should finished for prize distribution.")]
+    WinClaimingNotFinished,
     #[msg("Win already claimed for this user.")]
     WinAlreadyClaimed,
     #[msg("Answer count do not match.")]
     AnswerCountMismatch,
     #[msg("Wrong answer.")]
     WrongAnswer,
+    #[msg("Player should claim win to receive prize.")]
+    NoWinClaimed,
+    #[msg("Player's prize already claimed.")]
+    PrizeAlreadyClaimed,
 }

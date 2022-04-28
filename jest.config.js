@@ -4,4 +4,5 @@ module.exports = {
     testEnvironment: 'node',
     testTimeout: 1000000,
     testMatch: ['**/tests/**/*.[jt]s?(x)'],
+    maxWorkers: 1,
 }

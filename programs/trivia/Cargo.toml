@@ -14,3 +14,5 @@ cpi = ["no-entrypoint"]
 [dependencies]
 anchor-lang = "0.18.0"
 borsh = { version = "0.9.1", features = ["const-generics"] }
+anchor-spl = {version = "0.18.0"}
+spl-token = {version = "3.3.0", features = ["no-entrypoint"]}

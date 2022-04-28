@@ -15,6 +15,7 @@ export interface Game extends Omit<IdlAccounts<Trivia>["game"], "questionKeys" |
 export interface CreateGameOptions {
     name: string
     startTime: anchor.BN
+    prizeFundAmount: anchor.BN
 }
 
 export interface EditGameOptions extends Optional<CreateGameOptions> {

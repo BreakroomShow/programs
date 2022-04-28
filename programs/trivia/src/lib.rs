@@ -12,6 +12,9 @@ mod error;
 mod event;
 mod seed;
 
+use anchor_spl::token::{self, Mint, SetAuthority, TokenAccount, Transfer, Token};
+use spl_token::instruction::AuthorityType;
+
 declare_id!("Eb7ZLJqhTDmLDcoGbKUy6DKxSBraNEsfbDST4FWiXAwv");
 
 const INVITES_AFTER_FIRST_GAME: u32 = 3;
@@ -89,8 +92,6 @@ mod trivia {
     pub fn add_user_invite(ctx: Context<AddUserInvite>) -> ProgramResult {
         ctx.accounts.user.left_invites_counter += 1;
 
-        msg!("test");
-
         Ok(())
     }
 
@@ -136,7 +137,7 @@ mod trivia {
     }
 
     #[derive(Accounts)]
-    #[instruction(options: GameOptions, bump: u8)]
+    #[instruction(options: GameOptions, bump: u8, prize_fund_vault_bump: u8, prize_fund_vault_authority_bump: u8)]
     pub struct CreateGame<'info> {
         #[account(mut, has_one = authority)]
         trivia: Account<'info, Trivia>,
@@ -152,24 +153,60 @@ mod trivia {
             space = Game::space()
         )]
         game: Account<'info, Game>,
+        prize_fund_mint: Account<'info, Mint>,
+        #[account(
+            init,
+            seeds = [
+                seed::VAULT.as_ref(),
+                game.key().as_ref()
+            ],
+            bump = prize_fund_vault_bump,
+            payer = authority,
+            token::mint = prize_fund_mint,
+            token::authority = prize_fund_vault_authority,
+        )]
+        prize_fund_vault: Account<'info, TokenAccount>,
+        #[account(
+            mut,
+            constraint = prize_fund_deposit.amount >= options.prize_fund_amount.unwrap_or(0),
+            constraint = prize_fund_deposit.mint == prize_fund_mint.key(),
+            constraint = prize_fund_deposit.owner == authority.key(),
+        )]
+        prize_fund_deposit: Account<'info, TokenAccount>,
+        #[account(
+            mut,
+            seeds = [
+                seed::VAULT_AUTHORITY.as_ref(),
+                game.key().as_ref()
+            ],
+            bump = prize_fund_vault_authority_bump
+        )]
+        prize_fund_vault_authority: AccountInfo<'info>,
         authority: Signer<'info>,
         system_program: Program<'info, System>,
+        token_program: Program<'info, Token>,
+        rent: Sysvar<'info, Rent>,
     }
 
     #[access_control(access::admin(&ctx.accounts.trivia.authority, &ctx.accounts.authority))]
-    pub fn create_game(ctx: Context<CreateGame>, options: GameOptions, bump: u8) -> ProgramResult {
-        // todo: take mint, token account and get token account ownership
+    pub fn create_game(ctx: Context<CreateGame>,
+                       options: GameOptions,
+                       bump: u8,
+                       _prize_fund_vault_bump: u8,
+                       prize_fund_vault_authority_bump: u8) -> ProgramResult {
         let trivia = &mut ctx.accounts.trivia;
         let game = &mut ctx.accounts.game;
 
         let name = options.name.ok_or(ErrorCode::InvalidGameName)?;
         let start_time = options.start_time.ok_or(ErrorCode::InvalidGameStartTime)?;
+        let prize_fund_amount = options.prize_fund_amount.ok_or(ErrorCode::InvalidPrizeFundAmount)?;
 
         require!(!name.is_empty(), ErrorCode::InvalidGameName);
         require!(
             start_time > Clock::get()?.unix_timestamp as u64,
             ErrorCode::InvalidGameStartTime
         );
+        require!(prize_fund_amount > 0, ErrorCode::InvalidPrizeFundAmount);
 
         game.trivia = trivia.key();
         game.authority = ctx.accounts.authority.key();
@@ -178,6 +215,23 @@ mod trivia {
         game.start_time = start_time;
         game.winners = 0;
         game.win_claiming_status = WinClaimingStatus::NotStarted;
+
+        game.prize_fund_vault = ctx.accounts.prize_fund_vault.to_account_info().key();
+        game.prize_fund_amount = prize_fund_amount;
+        game.prize_fund_vault_authority = ctx.accounts.prize_fund_vault_authority.key();
+        game.prize_fund_vault_authority_bump = prize_fund_vault_authority_bump;
+
+        {
+            let cpi_ctx = CpiContext::new(
+                ctx.accounts.token_program.to_account_info(),
+                token::Transfer {
+                    from: ctx.accounts.prize_fund_deposit.to_account_info().clone(),
+                    to: ctx.accounts.prize_fund_vault.to_account_info().clone(),
+                    authority: ctx.accounts.authority.to_account_info().clone(),
+                },
+            );
+            token::transfer(cpi_ctx, prize_fund_amount)?;
+        }
 
         trivia.games_counter += 1;
 
@@ -339,7 +393,7 @@ mod trivia {
         let revealed_question_hash = hash(revealed_name.as_ref());
 
         require!(
-            revealed_question_hash == Hash(question.question),
+            revealed_question_hash == Hash::new(&question.question),
             ErrorCode::InvalidQuestionHash
         );
         require!(
@@ -349,7 +403,7 @@ mod trivia {
 
         for (revealed_variant, variant) in revealed_variants
             .iter()
-            .zip(question.variants.iter().map(|&variant| Hash(variant)))
+            .zip(question.variants.iter().map(|&variant| Hash::new(&variant)))
         {
             require!(
                 extend_and_hash(&revealed_question_hash, revealed_variant.as_bytes()) == variant,
@@ -464,6 +518,7 @@ mod trivia {
             player.authority = authority.key();
             player.bump = player_bump;
             player.claimed_win = false;
+            player.claimed_prize = false;
         }
 
         if question_id == game.question_keys.len() - 1 {
@@ -570,15 +625,6 @@ mod trivia {
 
         game.win_claiming_status = WinClaimingStatus::Finished;
 
-        // if game.winners == 0 {
-        //     game.prize = 0;
-        // } else {
-        //     game.prize = game.prize_fund_total / game.winners;
-        // }
-
-        // todo: calculate prize here
-        // todo: what if no one won?
-
         Ok(())
     }
 
@@ -621,8 +667,73 @@ mod trivia {
         Ok(())
     }
 
+    #[derive(Accounts)]
+    #[instruction()]
+    pub struct ClaimPrize<'info> {
+        #[account()]
+        trivia: Account<'info, Trivia>,
+        #[account(has_one = trivia)]
+        game: Account<'info, Game>,
+        #[account(has_one = authority, has_one = trivia)]
+        user: Account<'info, User>,
+        #[account(mut, has_one = authority, has_one = user, has_one = game)]
+        player: Account<'info, Player>,
+        #[account(
+            mut,
+            constraint = prize_fund_vault.key() == game.prize_fund_vault,
+            constraint = prize_fund_vault.owner == prize_fund_vault_authority.key()
+        )]
+        prize_fund_vault: Account<'info, TokenAccount>,
+        #[account(
+            mut,
+            constraint = prize_fund_vault_authority.key() == game.prize_fund_vault_authority,
+        )]
+        prize_fund_vault_authority: AccountInfo<'info>,
+        #[account(
+            mut,
+            constraint = target_account.mint == prize_fund_vault.mint.key(),
+        )]
+        target_account: Account<'info, TokenAccount>,
+        authority: Signer<'info>,
+        system_program: Program<'info, System>,
+        token_program: Program<'info, Token>,
+    }
+
+    #[access_control(access::user(&ctx.accounts.trivia, &ctx.accounts.user))]
+    pub fn claim_prize(
+        ctx: Context<ClaimPrize>,
+    ) -> ProgramResult {
+        let game = &mut ctx.accounts.game;
+        let player = &mut ctx.accounts.player;
+
+        require!(game.started()?, ErrorCode::GameNotStarted);
+        require!(game.win_claiming_status == WinClaimingStatus::Finished, ErrorCode::WinClaimingNotFinished);
+        require!(player.claimed_win, ErrorCode::NoWinClaimed);
+        require!(!player.claimed_prize, ErrorCode::PrizeAlreadyClaimed);
+
+        player.claimed_prize = true;
+
+        {
+            let game_key = game.key();
+            let seeds = &[seed::VAULT_AUTHORITY.as_ref(), game_key.as_ref(), &[game.prize_fund_vault_authority_bump]];
+            let signer = &[&seeds[..]];
+
+            let cpi_ctx = CpiContext::new_with_signer(
+                ctx.accounts.token_program.to_account_info(),
+                token::Transfer {
+                    from: ctx.accounts.prize_fund_vault.to_account_info(),
+                    to: ctx.accounts.target_account.to_account_info(),
+                    authority: ctx.accounts.prize_fund_vault_authority.to_account_info(),
+                },
+                signer
+            );
+            token::transfer(cpi_ctx, game.prize())?;
+        }
+
+        Ok(())
+    }
+
     // todo: probably, make an event to stop claiming questions
-    // todo: instruction to claim the winnings from the ownership account
 }
 
 fn remove_question_from_game(game: &mut Account<Game>, question_key: Pubkey) -> ProgramResult {

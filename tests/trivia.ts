@@ -7,7 +7,7 @@ import {
     EditGameOptions,
     Game,
     GamePDA,
-    PlayerPDA,
+    PlayerPDA, PrizeFundVaultAuthorityPDA, PrizeFundVaultPDA,
     RevealAnswerEvent,
     RevealQuestionEvent, Trivia,
     TriviaPDA,
@@ -16,7 +16,13 @@ import {
 } from '../types'
 import {promiseWithTimeout, sha256} from './utils'
 
-describe('trivia', () => {
+import {
+    createMint, getOrCreateAssociatedTokenAccount, Account,
+    mintTo, createTransferInstruction, createAccount, getAccount,
+    TOKEN_PROGRAM_ID
+} from '@solana/spl-token'
+
+    describe('trivia', () => {
     const provider = anchor.Provider.local()
     anchor.setProvider(provider)
 
@@ -26,6 +32,8 @@ describe('trivia', () => {
     let triviaPDA: PublicKey
     let gamePDA: PublicKey
     let userPDA: PublicKey
+    let vaultPDA: PublicKey
+    let vaultAuthorityPDA: PublicKey
 
     const questionKeypair = Keypair.generate()
     const dummyQuestionKeypair = Keypair.generate()
@@ -41,16 +49,52 @@ describe('trivia', () => {
     // We'll pay for transactions of some users, acting as a fee payer for transaction.
     // For player 2 we won't airdrop any SOL and have fee payer pay for both transaction and rent fees.
     // However, player 2 should remain the custodial owner of all game accounts
-    const feePayerKeypair = Keypair.generate()
+    const feePayerKeypair = Keypair.generate();
+
+    const mintAuthorityKeypair = Keypair.generate();
+    let mint: PublicKey;
+    let providerTokenAccount: PublicKey;
 
     let questionDeadline: Date
 
     beforeAll(async () => {
         // Airdrop some funds on player and fee payer keypairs:
-        for (const publicKey of [player1Keypair.publicKey, feePayerKeypair.publicKey]) {
+        for (const publicKey of [player1Keypair.publicKey, feePayerKeypair.publicKey, mintAuthorityKeypair.publicKey]) {
             const airdropSignature = await provider.connection.requestAirdrop(publicKey, LAMPORTS_PER_SOL);
             await provider.connection.confirmTransaction(airdropSignature);
         }
+
+        // Create new token to give away as a prize
+        mint = await createMint(
+          provider.connection,
+          mintAuthorityKeypair,
+          mintAuthorityKeypair.publicKey,
+          null,
+          9,
+          undefined,
+          {commitment: 'confirmed'}
+        );
+        providerTokenAccount = await createAccount(
+          provider.connection,
+          feePayerKeypair,
+          mint,
+          provider.wallet.publicKey,
+          undefined,
+          {commitment: 'confirmed'}
+        );
+        await mintTo(
+          provider.connection,
+          mintAuthorityKeypair,
+          mint,
+          providerTokenAccount,
+          mintAuthorityKeypair,
+          1e9,
+          [],
+          {commitment: 'confirmed'},
+          TOKEN_PROGRAM_ID
+        );
+        console.log('cool 4');
+
     })
 
     test('Initializes a Trivia', async () => {
@@ -78,17 +122,36 @@ describe('trivia', () => {
         )
         gamePDA = _gamePDA
 
+        const [_vaultPDA, vaultBump] = await PrizeFundVaultPDA(
+          programId,
+          gamePDA
+        )
+        vaultPDA = _vaultPDA
+
+        const [_vaultAuthorityPDA, vaultAuthorityBump] = await PrizeFundVaultAuthorityPDA(
+          programId,
+          gamePDA
+        )
+        vaultAuthorityPDA = _vaultAuthorityPDA
+
         const options: CreateGameOptions = {
             name: 'Clever',
             startTime: new anchor.BN(Math.floor(new Date().getTime() / 1000) + 60),
+            prizeFundAmount: new anchor.BN(100)
         }
 
-        await program.rpc.createGame(options, gameBump, {
+        await program.rpc.createGame(options, gameBump, vaultBump, vaultAuthorityBump, {
             accounts: {
                 trivia: triviaPDA,
                 game: gamePDA,
                 authority: provider.wallet.publicKey,
+                prizeFundMint: mint,
+                prizeFundVault: vaultPDA,
+                prizeFundDeposit: providerTokenAccount,
+                prizeFundVaultAuthority: vaultAuthorityPDA,
                 systemProgram: anchor.web3.SystemProgram.programId,
+                tokenProgram: TOKEN_PROGRAM_ID,
+                rent: anchor.web3.SYSVAR_RENT_PUBKEY,
             },
         })
 
@@ -100,12 +163,17 @@ describe('trivia', () => {
         expect(game.startTime.toNumber()).toBe(options.startTime.toNumber())
         expect(game.questionKeys).toStrictEqual([])
         expect(game.revealedQuestionsCounter).toBe(0)
+        expect(game.prizeFundAmount.toNumber()).toEqual(options.prizeFundAmount.toNumber())
+
+        const vaultAccount = await getAccount(provider.connection, vaultPDA);
+        expect(vaultAccount.amount).toEqual(BigInt(100));
     })
 
     test('Edits the Game', async () => {
         const options: EditGameOptions = {
             name: 'CryptoClever',
             startTime: new anchor.BN(Math.floor(new Date().getTime() / 1000) + 10 * 60),
+            prizeFundAmount: new anchor.BN(150)
         }
 
         const event = await promiseWithTimeout(
@@ -317,6 +385,7 @@ describe('trivia', () => {
         const options: EditGameOptions = {
             name: 'CryptoClever',
             startTime: new anchor.BN(Math.floor(new Date().getTime() / 1000) + 10 * 60),
+            prizeFundAmount: new anchor.BN(200),
         }
 
         await expect(program.rpc.editGame(options, {
@@ -324,7 +393,7 @@ describe('trivia', () => {
                 game: gamePDA,
                 authority: provider.wallet.publicKey,
             },
-        })).rejects.toThrow('failed to send transaction: Transaction simulation failed: Error processing Instruction 0: custom program error: 0x132')
+        })).rejects.toThrow('failed to send transaction: Transaction simulation failed: Error processing Instruction 0: custom program error: 0x133')
     })
 
     test('Fails to move the Question in the already started Game', async () => {
@@ -333,7 +402,7 @@ describe('trivia', () => {
                 game: gamePDA,
                 authority: provider.wallet.publicKey,
             },
-        })).rejects.toThrow('failed to send transaction: Transaction simulation failed: Error processing Instruction 0: custom program error: 0x132')
+        })).rejects.toThrow('failed to send transaction: Transaction simulation failed: Error processing Instruction 0: custom program error: 0x133')
     })
 
     test('Fails to remove the Question from the already started Game', async () => {
@@ -342,7 +411,7 @@ describe('trivia', () => {
                 game: gamePDA,
                 authority: provider.wallet.publicKey,
             },
-        })).rejects.toThrow('failed to send transaction: Transaction simulation failed: Error processing Instruction 0: custom program error: 0x132')
+        })).rejects.toThrow('failed to send transaction: Transaction simulation failed: Error processing Instruction 0: custom program error: 0x133')
     })
 
     test('Reveals a Question for the Game', async () => {
@@ -525,7 +594,7 @@ describe('trivia', () => {
                 game: gamePDA,
                 authority: provider.wallet.publicKey,
             },
-        })).rejects.toThrow('failed to send transaction: Transaction simulation failed: Error processing Instruction 0: custom program error: 0x13e')
+        })).rejects.toThrow('failed to send transaction: Transaction simulation failed: Error processing Instruction 0: custom program error: 0x13f')
     })
 
     test('Starts Win Claiming For the Game', async () => {
@@ -590,7 +659,67 @@ describe('trivia', () => {
 
         const player = await program.account.player.fetch(player1PlayerPDA)
         expect(player.claimedWin).toStrictEqual(true)
+    });
+
+    test('Finishes Win Claiming For the Game', async () => {
+        await program.rpc.finishWinClaiming({
+            accounts: {
+                game: gamePDA,
+                authority: provider.wallet.publicKey,
+            },
+        });
+
+        // todo: validate calculated prize
+
+        const game = await program.account.game.fetch(gamePDA)
+        expect(game.winClaimingStatus).toStrictEqual({'finished': {}})
     })
+
+    test('Player 1 claims prize', async () => {
+        const targetAccount = await getOrCreateAssociatedTokenAccount(
+          provider.connection,
+          feePayerKeypair,
+          mint,
+          player1Keypair.publicKey,
+          undefined,
+          'confirmed',
+          {commitment: 'confirmed'}
+        );
+
+        const transaction = program.transaction.claimPrize( {
+            accounts: {
+                trivia: triviaPDA,
+                game: gamePDA,
+                user: player1UserPDA,
+                player: player1PlayerPDA,
+                prizeFundVault: vaultPDA,
+                prizeFundVaultAuthority: vaultAuthorityPDA,
+                targetAccount: targetAccount.address,
+                authority: player1Keypair.publicKey,
+                systemProgram: anchor.web3.SystemProgram.programId,
+                tokenProgram: TOKEN_PROGRAM_ID,
+            }
+        })
+
+        transaction.feePayer = player1Keypair.publicKey
+        transaction.recentBlockhash = (await provider.connection.getRecentBlockhash('confirmed')).blockhash
+
+        transaction.sign(player1Keypair)
+
+        await sendAndConfirmRawTransaction(
+          provider.connection,
+          transaction.serialize(),
+          {skipPreflight: true, commitment: 'confirmed'}
+        );
+
+        const targetAccountWithPrize = await getAccount(
+          provider.connection,
+          targetAccount.address,
+          'confirmed'
+        );
+        expect(targetAccountWithPrize.amount).toEqual(BigInt(100));
+    })
+
 
     test('Returns all the data', async () => {
         let trivia = await program.account.trivia.fetch(triviaPDA)
