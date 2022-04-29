@@ -10,7 +10,7 @@
     "test": "anchor build --idl-ts $INIT_CWD/types/generated && jest"
   },
   "dependencies": {
-    "@project-serum/anchor": "0.18.2",
+    "@project-serum/anchor": "0.24.2",
     "@solana/spl-token": "^0.2.0"
   },
   "devDependencies": {

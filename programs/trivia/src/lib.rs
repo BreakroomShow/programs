@@ -12,8 +12,7 @@ mod error;
 mod event;
 mod seed;
 
-use anchor_spl::token::{self, Mint, SetAuthority, TokenAccount, Transfer, Token};
-use spl_token::instruction::AuthorityType;
+use anchor_spl::token::{self, Mint, TokenAccount, Token};
 
 declare_id!("Eb7ZLJqhTDmLDcoGbKUy6DKxSBraNEsfbDST4FWiXAwv");
 
@@ -26,13 +25,14 @@ mod trivia {
     use super::*;
 
     #[derive(Accounts)]
-    #[instruction(bump: u8)]
+    #[instruction()]
     pub struct InitializeTrivia<'info> {
         #[account(
             init,
             payer = authority,
             seeds = [seed::TRIVIA.as_ref()],
-            bump = bump
+            space = Trivia::space() + 8,
+            bump
         )]
         trivia: Account<'info, Trivia>,
         #[account(mut)]
@@ -40,17 +40,17 @@ mod trivia {
         system_program: Program<'info, System>,
     }
 
-    pub fn initialize(ctx: Context<InitializeTrivia>, bump: u8) -> ProgramResult {
+    pub fn initialize(ctx: Context<InitializeTrivia>) -> Result<()> {
         let trivia = &mut ctx.accounts.trivia;
 
         trivia.authority = ctx.accounts.authority.key();
-        trivia.bump = bump;
+        trivia.bump = *ctx.bumps.get("trivia").unwrap();
 
         Ok(())
     }
 
     #[derive(Accounts)]
-    #[instruction(user_key: Pubkey, bump: u8)]
+    #[instruction(user_key: Pubkey)]
     pub struct WhitelistUser<'info> {
         #[account(has_one = authority @ ErrorCode::Unauthorized)]
         trivia: Account<'info, Trivia>,
@@ -58,9 +58,11 @@ mod trivia {
             init,
             payer = authority,
             seeds = [seed::USER.as_ref(), trivia.key().as_ref(), user_key.as_ref()],
-            bump = bump
+            space = User::space() + 8,
+            bump
         )]
         whitelisted_user: Account<'info, User>,
+        #[account(mut)]
         authority: Signer<'info>,
         system_program: Program<'info, System>,
     }
@@ -68,13 +70,12 @@ mod trivia {
     pub fn whitelist_user(
         ctx: Context<WhitelistUser>,
         user_key: Pubkey,
-        bump: u8,
-    ) -> ProgramResult {
+    ) -> Result<()> {
         let user = &mut ctx.accounts.whitelisted_user;
 
         user.trivia = ctx.accounts.trivia.key();
         user.authority = user_key;
-        user.bump = bump;
+        user.bump = *ctx.bumps.get("whitelisted_user").unwrap();
 
         Ok(())
     }
@@ -89,14 +90,14 @@ mod trivia {
     }
 
     #[access_control(access::admin(&ctx.accounts.trivia.authority, &ctx.accounts.authority))]
-    pub fn add_user_invite(ctx: Context<AddUserInvite>) -> ProgramResult {
+    pub fn add_user_invite(ctx: Context<AddUserInvite>) -> Result<()> {
         ctx.accounts.user.left_invites_counter += 1;
 
         Ok(())
     }
 
     #[derive(Accounts)]
-    #[instruction(user_key: Pubkey, bump: u8)]
+    #[instruction(user_key: Pubkey)]
     pub struct InviteUser<'info> {
         #[account()]
         trivia: Account<'info, Trivia>,
@@ -108,17 +109,19 @@ mod trivia {
                 trivia.key().as_ref(),
                 user_key.as_ref()
             ],
-            bump = bump
+            space = User::space() + 8,
+            bump
         )]
         invited_user: Account<'info, User>,
         #[account(mut, has_one = authority, has_one = trivia)]
         user: Account<'info, User>,
+        #[account(mut)]
         authority: Signer<'info>,
         system_program: Program<'info, System>,
     }
 
     #[access_control(access::user(&ctx.accounts.trivia, &ctx.accounts.user))]
-    pub fn invite_user(ctx: Context<InviteUser>, user_key: Pubkey, bump: u8) -> ProgramResult {
+    pub fn invite_user(ctx: Context<InviteUser>, user_key: Pubkey) -> Result<()> {
         let user = &mut ctx.accounts.user;
         let invited_user = &mut ctx.accounts.invited_user;
 
@@ -129,7 +132,7 @@ mod trivia {
 
         invited_user.trivia = ctx.accounts.trivia.key();
         invited_user.authority = user_key;
-        invited_user.bump = bump;
+        invited_user.bump = *ctx.bumps.get("invited_user").unwrap();
 
         user.left_invites_counter -= 1;
 
@@ -137,7 +140,7 @@ mod trivia {
     }
 
     #[derive(Accounts)]
-    #[instruction(options: GameOptions, bump: u8, prize_fund_vault_bump: u8, prize_fund_vault_authority_bump: u8)]
+    #[instruction(options: GameOptions)]
     pub struct CreateGame<'info> {
         #[account(mut, has_one = authority)]
         trivia: Account<'info, Trivia>,
@@ -149,10 +152,10 @@ mod trivia {
                 trivia.key().as_ref(),
                 trivia.games_counter.to_string().as_ref()
             ],
-            bump = bump,
-            space = Game::space()
+            bump,
+            space = Game::space() + 8
         )]
-        game: Account<'info, Game>,
+        game: Box<Account<'info, Game>>,
         prize_fund_mint: Account<'info, Mint>,
         #[account(
             init,
@@ -160,7 +163,7 @@ mod trivia {
                 seed::VAULT.as_ref(),
                 game.key().as_ref()
             ],
-            bump = prize_fund_vault_bump,
+            bump,
             payer = authority,
             token::mint = prize_fund_mint,
             token::authority = prize_fund_vault_authority,
@@ -174,14 +177,15 @@ mod trivia {
         )]
         prize_fund_deposit: Account<'info, TokenAccount>,
         #[account(
-            mut,
             seeds = [
                 seed::VAULT_AUTHORITY.as_ref(),
                 game.key().as_ref()
             ],
-            bump = prize_fund_vault_authority_bump
+            bump
         )]
-        prize_fund_vault_authority: AccountInfo<'info>,
+        /// CHECK: only used as PDA authority
+        prize_fund_vault_authority: UncheckedAccount<'info>,
+        #[account(mut)]
         authority: Signer<'info>,
         system_program: Program<'info, System>,
         token_program: Program<'info, Token>,
@@ -190,10 +194,7 @@ mod trivia {
 
     #[access_control(access::admin(&ctx.accounts.trivia.authority, &ctx.accounts.authority))]
     pub fn create_game(ctx: Context<CreateGame>,
-                       options: GameOptions,
-                       bump: u8,
-                       _prize_fund_vault_bump: u8,
-                       prize_fund_vault_authority_bump: u8) -> ProgramResult {
+                       options: GameOptions) -> Result<()> {
         let trivia = &mut ctx.accounts.trivia;
         let game = &mut ctx.accounts.game;
 
@@ -210,7 +211,7 @@ mod trivia {
 
         game.trivia = trivia.key();
         game.authority = ctx.accounts.authority.key();
-        game.bump = bump;
+        game.bump = *ctx.bumps.get("game").unwrap();
         game.name = name;
         game.start_time = start_time;
         game.winners = 0;
@@ -219,7 +220,7 @@ mod trivia {
         game.prize_fund_vault = ctx.accounts.prize_fund_vault.to_account_info().key();
         game.prize_fund_amount = prize_fund_amount;
         game.prize_fund_vault_authority = ctx.accounts.prize_fund_vault_authority.key();
-        game.prize_fund_vault_authority_bump = prize_fund_vault_authority_bump;
+        game.prize_fund_vault_authority_bump = *ctx.bumps.get("prize_fund_vault_authority").unwrap();
 
         {
             let cpi_ctx = CpiContext::new(
@@ -241,12 +242,12 @@ mod trivia {
     #[derive(Accounts)]
     pub struct EditGame<'info> {
         #[account(mut, has_one = authority)]
-        game: Account<'info, Game>,
+        game: Box<Account<'info, Game>>,
         authority: Signer<'info>,
     }
 
     #[access_control(access::admin(&ctx.accounts.game.authority, &ctx.accounts.authority))]
-    pub fn edit_game(ctx: Context<EditGame>, options: GameOptions) -> ProgramResult {
+    pub fn edit_game(ctx: Context<EditGame>, options: GameOptions) -> Result<()> {
         let game = &mut ctx.accounts.game;
 
         require!(!game.started()?, ErrorCode::GameAlreadyStarted);
@@ -277,7 +278,7 @@ mod trivia {
     }
 
     #[access_control(access::admin(&ctx.accounts.game.authority, &ctx.accounts.authority))]
-    pub fn start_game(ctx: Context<StartGame>) -> ProgramResult {
+    pub fn start_game(ctx: Context<StartGame>) -> Result<()> {
         let game = &mut ctx.accounts.game;
 
         require!(!game.started()?, ErrorCode::GameAlreadyStarted);
@@ -293,8 +294,9 @@ mod trivia {
     pub struct AddQuestion<'info> {
         #[account(mut, has_one = authority)]
         game: Account<'info, Game>,
-        #[account(init, payer = authority, space = Question::space())]
+        #[account(init, payer = authority, space = Question::space() + 8)]
         question: Account<'info, Question>,
+        #[account(mut)]
         authority: Signer<'info>,
         system_program: Program<'info, System>,
     }
@@ -305,7 +307,7 @@ mod trivia {
         name: [u8; 32],
         variants: Vec<[u8; 32]>,
         time: u64,
-    ) -> ProgramResult {
+    ) -> Result<()> {
         let game = &mut ctx.accounts.game;
         let question = &mut ctx.accounts.question;
 
@@ -330,7 +332,7 @@ mod trivia {
     }
 
     #[access_control(access::admin(&ctx.accounts.game.authority, &ctx.accounts.authority))]
-    pub fn remove_question(ctx: Context<EditQuestion>, question_key: Pubkey) -> ProgramResult {
+    pub fn remove_question(ctx: Context<EditQuestion>, question_key: Pubkey) -> Result<()> {
         let game = &mut ctx.accounts.game;
 
         require!(!game.started()?, ErrorCode::GameAlreadyStarted);
@@ -345,7 +347,7 @@ mod trivia {
         ctx: Context<EditQuestion>,
         question_key: Pubkey,
         new_position: u32,
-    ) -> ProgramResult {
+    ) -> Result<()> {
         let game = &mut ctx.accounts.game;
 
         require!(!game.started()?, ErrorCode::GameAlreadyStarted);
@@ -374,7 +376,7 @@ mod trivia {
         ctx: Context<RevealQuestion>,
         revealed_name: String,
         revealed_variants: Vec<String>,
-    ) -> ProgramResult {
+    ) -> Result<()> {
         let game = &mut ctx.accounts.game;
         let question = &mut ctx.accounts.question;
 
@@ -429,7 +431,7 @@ mod trivia {
     }
 
     #[derive(Accounts)]
-    #[instruction(variant_id: u32, player_bump: u8, user_bump: u8)]
+    #[instruction(variant_id: u32)]
     pub struct SubmitAnswer<'info> {
         #[account()]
         trivia: Account<'info, Trivia>,
@@ -443,7 +445,8 @@ mod trivia {
                 trivia.key().as_ref(),
                 authority.key().as_ref()
             ],
-            bump = user_bump
+            space = User::space() + 8,
+            bump
         )]
         user: Account<'info, User>,
         #[account(
@@ -454,13 +457,14 @@ mod trivia {
                 game.key().as_ref(),
                 user.key().as_ref()
             ],
-            bump = player_bump,
-            space = Player::space()
+            bump,
+            space = Player::space() + 8
         )]
         player: Account<'info, Player>,
         #[account(mut, has_one = game)]
         question: Account<'info, Question>,
         authority: Signer<'info>,
+        #[account(mut)]
         fee_payer: Signer<'info>,
         system_program: Program<'info, System>,
     }
@@ -468,11 +472,7 @@ mod trivia {
     pub fn submit_answer(
         ctx: Context<SubmitAnswer>,
         variant_id: u32,
-        player_bump: u8,
-        user_bump: u8,
-    ) -> ProgramResult {
-        msg!("test");
-
+    ) -> Result<()> {
         let trivia = &ctx.accounts.trivia;
         let game = &ctx.accounts.game;
         let question = &mut ctx.accounts.question;
@@ -507,7 +507,7 @@ mod trivia {
         if user.authority.to_bytes() == [0; 32] {
             user.trivia = trivia.key();
             user.authority = authority.key();
-            user.bump = user_bump;
+            user.bump = *ctx.bumps.get("user").unwrap();
         }
 
         if player.authority.to_bytes() == [0; 32] {
@@ -516,7 +516,7 @@ mod trivia {
             player.game = game.key();
             player.user = user.key();
             player.authority = authority.key();
-            player.bump = player_bump;
+            player.bump = *ctx.bumps.get("player").unwrap();
             player.claimed_win = false;
             player.claimed_prize = false;
         }
@@ -542,7 +542,7 @@ mod trivia {
     }
 
     #[access_control(access::admin(&ctx.accounts.question.authority, &ctx.accounts.authority))]
-    pub fn reveal_answer(ctx: Context<RevealAnswer>, revealed_variant_id: u32) -> ProgramResult {
+    pub fn reveal_answer(ctx: Context<RevealAnswer>, revealed_variant_id: u32) -> Result<()> {
         let game = &mut ctx.accounts.game;
         let question = &mut ctx.accounts.question;
 
@@ -594,7 +594,7 @@ mod trivia {
     }
 
     #[access_control(access::admin(&ctx.accounts.game.authority, &ctx.accounts.authority))]
-    pub fn start_win_claiming(ctx: Context<StartWinClaiming>) -> ProgramResult {
+    pub fn start_win_claiming(ctx: Context<StartWinClaiming>) -> Result<()> {
         let game = &mut ctx.accounts.game;
 
         require!(game.started()?, ErrorCode::GameNotStarted);
@@ -617,7 +617,7 @@ mod trivia {
     }
 
     #[access_control(access::admin(&ctx.accounts.game.authority, &ctx.accounts.authority))]
-    pub fn finish_win_claiming(ctx: Context<FinishWinClaiming>) -> ProgramResult {
+    pub fn finish_win_claiming(ctx: Context<FinishWinClaiming>) -> Result<()> {
         let game = &mut ctx.accounts.game;
 
         require!(game.started()?, ErrorCode::GameNotStarted);
@@ -645,7 +645,7 @@ mod trivia {
     #[access_control(access::user(&ctx.accounts.trivia, &ctx.accounts.user))]
     pub fn claim_win(
         ctx: Context<ClaimWin>,
-    ) -> ProgramResult {
+    ) -> Result<()> {
         let game = &mut ctx.accounts.game;
         let player = &mut ctx.accounts.player;
 
@@ -673,11 +673,11 @@ mod trivia {
         #[account()]
         trivia: Account<'info, Trivia>,
         #[account(has_one = trivia)]
-        game: Account<'info, Game>,
+        game: Box<Account<'info, Game>>,
         #[account(has_one = authority, has_one = trivia)]
         user: Account<'info, User>,
         #[account(mut, has_one = authority, has_one = user, has_one = game)]
-        player: Account<'info, Player>,
+        player: Box<Account<'info, Player>>,
         #[account(
             mut,
             constraint = prize_fund_vault.key() == game.prize_fund_vault,
@@ -688,7 +688,8 @@ mod trivia {
             mut,
             constraint = prize_fund_vault_authority.key() == game.prize_fund_vault_authority,
         )]
-        prize_fund_vault_authority: AccountInfo<'info>,
+        /// CHECK: only used as PDA authority
+        prize_fund_vault_authority: UncheckedAccount<'info>,
         #[account(
             mut,
             constraint = target_account.mint == prize_fund_vault.mint.key(),
@@ -702,7 +703,7 @@ mod trivia {
     #[access_control(access::user(&ctx.accounts.trivia, &ctx.accounts.user))]
     pub fn claim_prize(
         ctx: Context<ClaimPrize>,
-    ) -> ProgramResult {
+    ) -> Result<()> {
         let game = &mut ctx.accounts.game;
         let player = &mut ctx.accounts.player;
 
@@ -736,7 +737,7 @@ mod trivia {
     // todo: probably, make an event to stop claiming questions
 }
 
-fn remove_question_from_game(game: &mut Account<Game>, question_key: Pubkey) -> ProgramResult {
+fn remove_question_from_game(game: &mut Account<Game>, question_key: Pubkey) -> Result<()> {
     require!(!game.started()?, ErrorCode::GameAlreadyStarted);
 
     let len_before = game.question_keys.len();

@@ -32,7 +32,3 @@ export function promiseWithTimeout<T>(
     // returns a race between timeout and the passed promise
     return Promise.race<T>([promise, timeout])
 }
-
-export function programError(code: number, msg: string): anchor.ProgramError {
-    return new anchor.ProgramError(code, msg, `${code}: ${msg}`)
-}

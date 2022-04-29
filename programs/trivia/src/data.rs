@@ -9,6 +9,16 @@ pub struct Trivia {
     pub games_counter: u32,
 }
 
+impl Trivia {
+    pub fn space() -> usize {
+        AnchorSerialize::try_to_vec(&Self {
+            ..Default::default()
+        })
+            .unwrap()
+            .len()
+    }
+}
+
 #[account]
 #[derive(Default)]
 pub struct User {
@@ -18,6 +28,16 @@ pub struct User {
 
     pub finished_games_counter: u32,
     pub left_invites_counter: u32,
+}
+
+impl User {
+    pub fn space() -> usize {
+        AnchorSerialize::try_to_vec(&Self {
+            ..Default::default()
+        })
+            .unwrap()
+            .len()
+    }
 }
 
 #[account]
@@ -89,7 +109,7 @@ impl Game {
 }
 
 impl Game {
-    pub fn started(&self) -> Result<bool, ProgramError> {
+    pub fn started(&self) -> Result<bool> {
         Ok(self.start_time <= Clock::get()?.unix_timestamp as u64)
     }
 

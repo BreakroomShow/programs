@@ -21,12 +21,7 @@ export type Trivia = {
           "isSigner": false
         }
       ],
-      "args": [
-        {
-          "name": "bump",
-          "type": "u8"
-        }
-      ]
+      "args": []
     },
     {
       "name": "whitelistUser",
@@ -43,7 +38,7 @@ export type Trivia = {
         },
         {
           "name": "authority",
-          "isMut": false,
+          "isMut": true,
           "isSigner": true
         },
         {
@@ -56,10 +51,6 @@ export type Trivia = {
         {
           "name": "userKey",
           "type": "publicKey"
-        },
-        {
-          "name": "bump",
-          "type": "u8"
         }
       ]
     },
@@ -104,7 +95,7 @@ export type Trivia = {
         },
         {
           "name": "authority",
-          "isMut": false,
+          "isMut": true,
           "isSigner": true
         },
         {
@@ -117,10 +108,6 @@ export type Trivia = {
         {
           "name": "userKey",
           "type": "publicKey"
-        },
-        {
-          "name": "bump",
-          "type": "u8"
         }
       ]
     },
@@ -154,12 +141,12 @@ export type Trivia = {
         },
         {
           "name": "prizeFundVaultAuthority",
-          "isMut": true,
+          "isMut": false,
           "isSigner": false
         },
         {
           "name": "authority",
-          "isMut": false,
+          "isMut": true,
           "isSigner": true
         },
         {
@@ -184,18 +171,6 @@ export type Trivia = {
           "type": {
             "defined": "GameOptions"
           }
-        },
-        {
-          "name": "bump",
-          "type": "u8"
-        },
-        {
-          "name": "prizeFundVaultBump",
-          "type": "u8"
-        },
-        {
-          "name": "prizeFundVaultAuthorityBump",
-          "type": "u8"
         }
       ]
     },
@@ -253,7 +228,7 @@ export type Trivia = {
         },
         {
           "name": "authority",
-          "isMut": false,
+          "isMut": true,
           "isSigner": true
         },
         {
@@ -402,7 +377,7 @@ export type Trivia = {
         },
         {
           "name": "feePayer",
-          "isMut": false,
+          "isMut": true,
           "isSigner": true
         },
         {
@@ -415,14 +390,6 @@ export type Trivia = {
         {
           "name": "variantId",
           "type": "u32"
-        },
-        {
-          "name": "playerBump",
-          "type": "u8"
-        },
-        {
-          "name": "userBump",
-          "type": "u8"
         }
       ]
     },
@@ -1085,12 +1052,7 @@ export const IDL: Trivia = {
           "isSigner": false
         }
       ],
-      "args": [
-        {
-          "name": "bump",
-          "type": "u8"
-        }
-      ]
+      "args": []
     },
     {
       "name": "whitelistUser",
@@ -1107,7 +1069,7 @@ export const IDL: Trivia = {
         },
         {
           "name": "authority",
-          "isMut": false,
+          "isMut": true,
           "isSigner": true
         },
         {
@@ -1120,10 +1082,6 @@ export const IDL: Trivia = {
         {
           "name": "userKey",
           "type": "publicKey"
-        },
-        {
-          "name": "bump",
-          "type": "u8"
         }
       ]
     },
@@ -1168,7 +1126,7 @@ export const IDL: Trivia = {
         },
         {
           "name": "authority",
-          "isMut": false,
+          "isMut": true,
           "isSigner": true
         },
         {
@@ -1181,10 +1139,6 @@ export const IDL: Trivia = {
         {
           "name": "userKey",
           "type": "publicKey"
-        },
-        {
-          "name": "bump",
-          "type": "u8"
         }
       ]
     },
@@ -1218,12 +1172,12 @@ export const IDL: Trivia = {
         },
         {
           "name": "prizeFundVaultAuthority",
-          "isMut": true,
+          "isMut": false,
           "isSigner": false
         },
         {
           "name": "authority",
-          "isMut": false,
+          "isMut": true,
           "isSigner": true
         },
         {
@@ -1248,18 +1202,6 @@ export const IDL: Trivia = {
           "type": {
             "defined": "GameOptions"
           }
-        },
-        {
-          "name": "bump",
-          "type": "u8"
-        },
-        {
-          "name": "prizeFundVaultBump",
-          "type": "u8"
-        },
-        {
-          "name": "prizeFundVaultAuthorityBump",
-          "type": "u8"
         }
       ]
     },
@@ -1317,7 +1259,7 @@ export const IDL: Trivia = {
         },
         {
           "name": "authority",
-          "isMut": false,
+          "isMut": true,
           "isSigner": true
         },
         {
@@ -1466,7 +1408,7 @@ export const IDL: Trivia = {
         },
         {
           "name": "feePayer",
-          "isMut": false,
+          "isMut": true,
           "isSigner": true
         },
         {
@@ -1479,14 +1421,6 @@ export const IDL: Trivia = {
         {
           "name": "variantId",
           "type": "u32"
-        },
-        {
-          "name": "playerBump",
-          "type": "u8"
-        },
-        {
-          "name": "userBump",
-          "type": "u8"
         }
       ]
     },

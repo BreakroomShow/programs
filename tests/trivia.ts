@@ -21,9 +21,10 @@ import {
     mintTo, createTransferInstruction, createAccount, getAccount,
     TOKEN_PROGRAM_ID
 } from '@solana/spl-token'
+import {AnchorProvider} from "@project-serum/anchor/dist/cjs/provider";
 
     describe('trivia', () => {
-    const provider = anchor.Provider.local()
+    const provider = anchor.AnchorProvider.local()
     anchor.setProvider(provider)
 
     const program: TriviaProgram = anchor.workspace.Trivia
@@ -93,7 +94,6 @@ import {
           {commitment: 'confirmed'},
           TOKEN_PROGRAM_ID
         );
-        console.log('cool 4');
 
     })
 
@@ -101,7 +101,7 @@ import {
         const [_triviaPDA, triviaBump] = await TriviaPDA(programId)
         triviaPDA = _triviaPDA
 
-        await program.rpc.initialize(triviaBump, {
+        await program.rpc.initialize( {
             accounts: {
                 trivia: triviaPDA,
                 authority: provider.wallet.publicKey,
@@ -140,7 +140,7 @@ import {
             prizeFundAmount: new anchor.BN(100)
         }
 
-        await program.rpc.createGame(options, gameBump, vaultBump, vaultAuthorityBump, {
+        await program.rpc.createGame(options, {
             accounts: {
                 trivia: triviaPDA,
                 game: gamePDA,
@@ -193,7 +193,7 @@ import {
             5000,
         )
 
-        expect(event.game).toStrictEqual(gamePDA)
+        expect(event.game.equals(gamePDA)).toBe(true);
 
         const game = await program.account.game.fetch(gamePDA)
         expect(game.name).toBe(options.name)
@@ -229,10 +229,11 @@ import {
         })
 
         const game = await program.account.game.fetch(gamePDA)
-        expect(game.questionKeys).toStrictEqual([questionKeypair.publicKey, dummyQuestionKeypair.publicKey])
+        expect(game.questionKeys[0].equals(questionKeypair.publicKey)).toBe(true);
+        expect(game.questionKeys[1].equals(dummyQuestionKeypair.publicKey)).toBe(true);
 
         const question = await program.account.question.fetch(questionKeypair.publicKey)
-        expect(question.game).toStrictEqual(gamePDA)
+        expect(question.game.equals(gamePDA)).toBe(true);
         expect(question.question).toStrictEqual(name)
         expect(question.variants).toStrictEqual(variants)
         expect(question.time.toNumber()).toStrictEqual(10)
@@ -248,7 +249,8 @@ import {
         })
 
         const game = await program.account.game.fetch(gamePDA)
-        expect(game.questionKeys).toStrictEqual([dummyQuestionKeypair.publicKey, questionKeypair.publicKey])
+        expect(game.questionKeys[0].equals(dummyQuestionKeypair.publicKey)).toBe(true);
+        expect(game.questionKeys[1].equals(questionKeypair.publicKey)).toBe(true);
     })
 
     test('Removes the Question from the Game', async () => {
@@ -260,7 +262,8 @@ import {
         })
 
         const game = await program.account.game.fetch(gamePDA)
-        expect(game.questionKeys).toStrictEqual([questionKeypair.publicKey])
+        expect(game.questionKeys[0].equals(questionKeypair.publicKey)).toBe(true);
+        expect(game.questionKeys.length).toEqual(1);
     })
 
     test('Whitelists the User', async () => {
@@ -273,7 +276,6 @@ import {
 
         await program.rpc.whitelistUser(
             provider.wallet.publicKey,
-            userBump,
             {
                 accounts: {
                     trivia: triviaPDA,
@@ -285,7 +287,7 @@ import {
         )
 
         await expect(
-            program.rpc.whitelistUser(provider.wallet.publicKey, userBump, {
+            program.rpc.whitelistUser(provider.wallet.publicKey, {
                 accounts: {
                     trivia: triviaPDA,
                     whitelistedUser: userPDA,
@@ -294,9 +296,6 @@ import {
                 },
             }),
         ).rejects.toThrow(anchor.web3.SendTransactionError)
-
-        const game = await program.account.game.fetch(gamePDA)
-        expect(game.questionKeys).toStrictEqual([questionKeypair.publicKey])
     })
 
     test('Fails to invite the User because no invites left', async () => {
@@ -309,7 +308,7 @@ import {
         )
 
         await expect(
-            program.rpc.inviteUser(invitedUserKeypair.publicKey, invitedUserBump, {
+            program.rpc.inviteUser(invitedUserKeypair.publicKey, {
                 accounts: {
                     trivia: triviaPDA,
                     invitedUser: invitedUserPDA,
@@ -318,7 +317,7 @@ import {
                     systemProgram: anchor.web3.SystemProgram.programId,
                 },
             }),
-        ).rejects.toThrow('failed to send transaction: Transaction simulation failed: Error processing Instruction 0: custom program error: 0x12f')
+        ).rejects.toThrow('Not enough invites left.')
     })
 
     test('Adds an invite to the User', async () => {
@@ -343,7 +342,7 @@ import {
             invitedUserKeypair.publicKey,
         )
 
-        await program.rpc.inviteUser(invitedUserKeypair.publicKey, invitedUserBump, {
+        await program.rpc.inviteUser(invitedUserKeypair.publicKey, {
             accounts: {
                 trivia: triviaPDA,
                 invitedUser: invitedUserPDA,
@@ -375,7 +374,7 @@ import {
             5000,
         )
 
-        expect(event.game).toStrictEqual(gamePDA)
+        expect(event.game.equals(gamePDA)).toBe(true);
 
         const game = await program.account.game.fetch(gamePDA)
         expect(game.startTime.toNumber()).toBeLessThan(new Date().getTime() / 1000)
@@ -393,7 +392,7 @@ import {
                 game: gamePDA,
                 authority: provider.wallet.publicKey,
             },
-        })).rejects.toThrow('failed to send transaction: Transaction simulation failed: Error processing Instruction 0: custom program error: 0x133')
+        })).rejects.toThrow('Game already started.')
     })
 
     test('Fails to move the Question in the already started Game', async () => {
@@ -402,7 +401,7 @@ import {
                 game: gamePDA,
                 authority: provider.wallet.publicKey,
             },
-        })).rejects.toThrow('failed to send transaction: Transaction simulation failed: Error processing Instruction 0: custom program error: 0x133')
+        })).rejects.toThrow('Game already started.')
     })
 
     test('Fails to remove the Question from the already started Game', async () => {
@@ -411,7 +410,7 @@ import {
                 game: gamePDA,
                 authority: provider.wallet.publicKey,
             },
-        })).rejects.toThrow('failed to send transaction: Transaction simulation failed: Error processing Instruction 0: custom program error: 0x133')
+        })).rejects.toThrow('Game already started.')
     })
 
     test('Reveals a Question for the Game', async () => {
@@ -436,8 +435,8 @@ import {
             5000,
         )
 
-        expect(event.game).toStrictEqual(gamePDA)
-        expect(event.question).toStrictEqual(questionKeypair.publicKey)
+        expect(event.game.equals(gamePDA)).toBe(true);
+        expect(event.question.equals(questionKeypair.publicKey)).toBe(true);
 
         const game = await program.account.game.fetch(gamePDA)
         expect(game.revealedQuestionsCounter).toBe(1)
@@ -457,7 +456,7 @@ import {
         const [userPDA, userBump] = await UserPDA(programId, triviaPDA, provider.wallet.publicKey)
         const [playerPDA, playerBump] = await PlayerPDA(programId, gamePDA, userPDA)
 
-        await program.rpc.submitAnswer(1, playerBump, userBump, {
+        await program.rpc.submitAnswer(1, {
             accounts: {
                 trivia: triviaPDA,
                 game: gamePDA,
@@ -487,7 +486,7 @@ import {
         player1PlayerPDA = _playerPDA
 
         const transaction = program.transaction.submitAnswer(
-          2, playerBump, userBump, {
+          2, {
               accounts: {
                   trivia: triviaPDA,
                   game: gamePDA,
@@ -525,7 +524,7 @@ import {
         player2PlayerPDA = _playerPDA
 
         const transaction = program.transaction.submitAnswer(
-          1, playerBump, userBump, {
+          1, {
               accounts: {
                   trivia: triviaPDA,
                   game: gamePDA,
@@ -577,8 +576,8 @@ import {
             5000,
         )
 
-        expect(event.game).toStrictEqual(gamePDA)
-        expect(event.question).toStrictEqual(questionKeypair.publicKey)
+        expect(event.game.equals(gamePDA)).toBe(true);
+        expect(event.question.equals(questionKeypair.publicKey)).toBe(true);
 
         const game = await program.account.game.fetch(gamePDA)
         expect(game.correctAnswers).toStrictEqual([2])
@@ -594,7 +593,7 @@ import {
                 game: gamePDA,
                 authority: provider.wallet.publicKey,
             },
-        })).rejects.toThrow('failed to send transaction: Transaction simulation failed: Error processing Instruction 0: custom program error: 0x13f')
+        })).rejects.toThrow('Answer already revealed')
     })
 
     test('Starts Win Claiming For the Game', async () => {
@@ -622,7 +621,7 @@ import {
           5000,
         )
 
-        expect(event.game).toStrictEqual(gamePDA)
+        expect(event.game.equals(gamePDA)).toBe(true);
 
         const game2 = await program.account.game.fetch(gamePDA)
         expect(game2.winClaimingStatus).toStrictEqual({'active': {}})
